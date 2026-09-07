@@ -1,0 +1,39 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node / React
+node_modules/
+dist/
+build/
+.next/
+.vite/
+
+# Go
+bin/
+*.exe
+*.test
+coverage.out
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Generated reports
+reports/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local databases / volumes
+postgres-data/
+redis-data/
