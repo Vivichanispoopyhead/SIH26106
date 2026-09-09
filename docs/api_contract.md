@@ -1,76 +1,713 @@
-
----
-
-# `api-contract.md`
-
-```md
 # API Contract
 
 ## 1. Purpose
 
-This document defines the communication contract between the React frontend and Go backend.
+This document defines the communication contract between the React frontend and Go backend for SIH26106.
 
 The frontend and backend must implement this contract rather than independently inventing request and response formats.
 
-Changes to this document require corresponding changes in both implementations.
-
----
-
-## 2. Base URL
-
-Development:
+The API is designed around the investigation workflow:
 
 ```text
+Upload .EML
+    ↓
+Automatic Case Creation
+    ↓
+Raw Artifact Preservation
+    ↓
+Analysis
+    ↓
+Parsed Email Data
+    ↓
+Investigation Workspace
+
+Changes to this document require corresponding changes in both frontend and backend.
+
+2. API Principles
+REST over HTTP.
+JSON for structured request and response data.
+multipart/form-data for .eml uploads.
+Raw uploaded email content is never returned through normal API responses.
+The original uploaded artifact must be preserved by the backend.
+Upload and analysis are separate operations.
+Analysis has explicit processing states.
+API responses use explicit status values.
+Backend responses must not expose implementation-specific internal structures.
+Observed data and derived data must remain distinguishable.
+Error responses use stable machine-readable error codes.
+The frontend must not depend on undocumented fields.
+The API must remain simple enough for the MVP while allowing future asynchronous analysis.
+3. Base URL
+
+Development API prefix:
+
 /api
 
-The frontend must not hardcode environment-specific hostnames.
+The frontend must not hardcode environment-specific hostnames throughout the application.
 
-Use environment configuration.
+Use frontend environment configuration for the API host.
 
-3. API Style
-REST over HTTP for request/response operations.
-JSON for structured API data.
-Multipart form-data for .eml uploads.
-WebSocket may be used for long-running analysis progress.
-4. Primary Endpoints
-Create Case
-POST /api/cases
+4. Initial MVP Workflow
 
-Response:
+The initial MVP workflow is:
 
-{
-  "case_id": "case_123",
-  "status": "created"
-}
-Upload Email
-POST /api/cases/{case_id}/emails
+User selects .eml
+        ↓
+POST /api/emails
+        ↓
+Validate upload
+        ↓
+Create Case automatically
+        ↓
+Create Email artifact
+        ↓
+Preserve original raw .eml
+        ↓
+Return case_id + email_id
+        ↓
+POST /api/emails/{email_id}/analysis
+        ↓
+Parse / analyze email
+        ↓
+GET /api/emails/{email_id}
+        ↓
+Frontend displays structured results
+
+The MVP does not require the user to manually create a case before uploading an email.
+
+Each initial email upload creates a new case automatically.
+
+Future versions may support attaching multiple emails to an existing case.
+
+5. API Scope
+
+The API is divided into:
+
+Implemented MVP Slice
+POST /api/emails
+POST /api/emails/{email_id}/analysis
+GET  /api/emails/{email_id}
+Future Investigation Endpoints
+GET  /api/cases/{case_id}
+GET  /api/cases/{case_id}/analysis
+GET  /api/cases/{case_id}/graph
+GET  /api/cases/{case_id}/timeline
+GET  /api/cases/{case_id}/map
+GET  /api/cases/{case_id}/evidence
+POST /api/cases/{case_id}/report
+GET  /api/cases/{case_id}/report
+
+Future endpoints must extend the existing contract rather than breaking the initial upload model.
+
+6. Endpoint: Upload Email
+Request
+POST /api/emails
 Content-Type: multipart/form-data
 
-Input:
+Form field:
 
 file=<email.eml>
+6.1 Upload Validation
 
-Response:
+Accepted file extension:
+
+.eml
+
+Maximum file size:
+
+50 MB
+
+The backend must reject:
+
+files larger than 50 MB
+unsupported file extensions
+missing file fields
+empty files
+malformed multipart requests
+
+The MVP does not accept .msg.
+
+6.2 Upload Semantics
+
+The backend must perform:
+
+Receive multipart upload
+        ↓
+Validate file
+        ↓
+Create Case
+        ↓
+Create Email record
+        ↓
+Preserve original raw artifact
+        ↓
+Record upload event
+        ↓
+Return identifiers
+
+The upload operation must NOT:
+
+silently discard the original artifact
+return the complete raw .eml
+silently begin expensive external enrichment
+silently begin AI analysis
+silently modify the uploaded artifact
+
+The upload operation establishes the case and email artifact only.
+
+Analysis is explicitly initiated by a separate request.
+
+7. Successful Upload Response
+
+HTTP status:
+
+202 Accepted
+
+Example:
 
 {
-  "email_id": "email_123",
-  "case_id": "case_123",
-  "status": "accepted"
+  "case_id": "case_01J...",
+  "email_id": "email_01J...",
+  "status": "uploaded"
 }
-Start Analysis
-POST /api/cases/{case_id}/analysis
+7.1 Response Fields
+case_id
 
-Response:
+Unique identifier for the automatically created investigation case.
+
+email_id
+
+Unique identifier for the uploaded email artifact.
+
+status
+
+Initial upload state.
+
+Possible value:
+
+uploaded
+8. Automatic Case Creation
+
+A Case is created automatically during the initial email upload.
+
+Minimum conceptual case information:
+
+Case
+- id
+- status
+- created_at
+- updated_at
+
+Initial case status:
+
+created
+
+A user-visible case title may be derived later from parsed email metadata.
+
+The upload API must not require the frontend to know or provide the final case title.
+
+9. Endpoint: Start Analysis
+Request
+POST /api/emails/{email_id}/analysis
+
+No request body is required for the initial MVP.
+
+9.1 Start Analysis Response
+
+HTTP status:
+
+202 Accepted
+
+Example:
 
 {
-  "analysis_id": "analysis_123",
+  "analysis_id": "analysis_01J...",
+  "email_id": "email_01J...",
+  "case_id": "case_01J...",
   "status": "started"
 }
+9.2 Analysis States
+
+Valid analysis states:
+
+started
+processing
+completed
+partial
+failed
+
+Meaning:
+
+started
+
+The analysis request was accepted and processing has begun.
+
+processing
+
+The analysis is currently being executed.
+
+completed
+
+All required analysis stages for the current implementation completed successfully.
+
+partial
+
+The analysis completed with one or more non-fatal analyzer failures or unavailable enrichments.
+
+failed
+
+The analysis could not produce a usable result.
+
+The analysis state describes processing state, not threat severity.
+
+For example:
+
+processing
+
+must never be interpreted by the frontend as:
+
+suspicious
+10. Analysis Execution Model
+
+The initial MVP may execute analysis synchronously inside the backend after receiving the analysis request.
+
+However, the API must preserve the explicit analysis-state model:
+
+started
+    ↓
+processing
+    ↓
+completed / partial / failed
+
+This allows the implementation to become asynchronous later without requiring a fundamental frontend API redesign.
+
+The frontend must rely on the documented status model rather than assuming analysis is always synchronous.
+
+11. Endpoint: Get Email Analysis
+GET /api/emails/{email_id}
+
+This endpoint returns the latest known structured state of the email.
+
+It may represent:
+
+uploaded
+processing
+parsed
+partial
+failed
+
+depending on the current implementation state.
+
+12. Upload-Only Email Response
+
+If the email has been uploaded but analysis has not yet produced parsed data:
+
+HTTP status:
+
+200 OK
+
+Example:
+
+{
+  "email_id": "email_01J...",
+  "case_id": "case_01J...",
+  "status": "uploaded",
+  "filename": "suspicious.eml"
+}
+13. Processing Email Response
+
+If analysis is currently running:
+
+HTTP status:
+
+200 OK
+
+Example:
+
+{
+  "email_id": "email_01J...",
+  "case_id": "case_01J...",
+  "status": "processing"
+}
+
+The frontend should use this status to display the analysis/loading state.
+
+14. Parsed Email Response
+
+When the parsing stage has completed successfully:
+
+HTTP status:
+
+200 OK
+
+Example:
+
+{
+  "email_id": "email_01J...",
+  "case_id": "case_01J...",
+  "status": "parsed",
+  "filename": "suspicious.eml",
+
+  "message": {
+    "message_id": "<abc123@example.com>",
+    "from": [
+      "attacker@example.com"
+    ],
+    "to": [
+      "victim@example.org"
+    ],
+    "cc": [],
+    "reply_to": [
+      "reply@example.net"
+    ],
+    "subject": "Urgent Account Notice",
+    "date": "2026-09-08T10:20:30Z",
+    "return_path": "bounce@example.com"
+  },
+
+  "mime": {
+    "content_type": "multipart/alternative",
+    "has_plain_text": true,
+    "has_html": true,
+    "attachment_count": 1
+  },
+
+  "headers": [
+    {
+      "name": "From",
+      "value": "attacker@example.com",
+      "order": 1
+    },
+    {
+      "name": "Received",
+      "value": "from mail.example.com by mx.example.org",
+      "order": 2
+    }
+  ],
+
+  "indicators": {
+    "ips": [],
+    "domains": [],
+    "urls": []
+  },
+
+  "attachments": [
+    {
+      "filename": "invoice.pdf.exe",
+      "mime_type": "application/octet-stream",
+      "size_bytes": 145120,
+      "sha256": "..."
+    }
+  ]
+}
+15. Message Metadata
+
+The structured message object may contain:
+
+message_id
+from
+to
+cc
+reply_to
+subject
+date
+return_path
+
+The API must preserve multiple addresses where applicable.
+
+Fields absent from the source email must not be fabricated.
+
+The backend must represent missing values consistently according to its type definitions.
+
+16. Complete Header Representation
+
+The API must provide the complete parsed header set.
+
+Each header contains:
+
+name
+value
+order
+
+Example:
+
+{
+  "name": "Received",
+  "value": "from mail.example.com by mx.example.org",
+  "order": 4
+}
+
+Header order must preserve the order in which headers appear in the source email.
+
+The complete header set is required for later stages including:
+
+SPF analysis
+DKIM analysis
+DMARC analysis
+Received-chain reconstruction
+Header anomaly detection
+Message-ID analysis
+17. MIME Information
+
+The mime object provides high-level structural information.
+
+Required fields:
+
+content_type
+has_plain_text
+has_html
+attachment_count
+
+The parser should preserve enough MIME information to support later forensic inspection.
+
+Deep MIME analysis is outside the initial MVP parsing slice.
+
+18. Indicator Extraction
+
+The parser must extract and normalize:
+
+IPv4
+IPv6
+Domains
+URLs
+
+The indicators object:
+
+{
+  "ips": [],
+  "domains": [],
+  "urls": []
+}
+
+Indicators should be deduplicated where appropriate while preserving source references internally.
+
+The initial parser does not assign reputation or threat scores.
+
+Reputation and enrichment belong to later analysis stages.
+
+19. Attachments
+
+The initial parser must detect attachments and return metadata.
+
+Each attachment may include:
+
+filename
+mime_type
+size_bytes
+sha256
+
+The backend must NOT:
+
+execute attachments
+execute embedded files
+execute macros
+launch extracted content
+
+Attachment threat analysis belongs to later analyzer stages.
+
+20. Raw Artifact Handling
+
+The original .eml must be preserved by the backend.
+
+Normal API responses must NOT return:
+
+raw_content
+
+or the complete raw email body as the default API representation.
+
+The raw artifact should instead remain available to authorized backend forensic and evidence functions.
+
+The original artifact is the source of truth for forensic reconstruction.
+
+21. Parse Failure
+
+If the uploaded .eml cannot be parsed:
+
+HTTP status:
+
+422 Unprocessable Entity
+
+Example:
+
+{
+  "error": {
+    "code": "EMAIL_PARSE_FAILED",
+    "message": "The email could not be parsed."
+  }
+}
+
+The original uploaded artifact MUST still be preserved.
+
+The failed artifact must not be silently deleted.
+
+22. Parse Failure Semantics
+
+When parsing fails, the backend should preserve:
+
+Case
+Email record
+Original raw artifact
+Upload event
+Parse failure information
+
+The parsed representation may be incomplete or absent.
+
+The failure must be visible to the frontend.
+
+A parsing failure is not permission to discard the source evidence.
+
+23. Partial Analysis
+
+A non-fatal analyzer failure must not necessarily fail the entire analysis.
+
+Example:
+
+Email Parsing       ✓
+Header Analysis     ✓
+IP Extraction       ✓
+IP Geolocation      ✗
+AI Analysis         ✓
+
+The final analysis may return:
+
+status: partial
+
+The response should clearly indicate unavailable or failed analyzer results where applicable.
+
+The frontend must not represent missing enrichment as though the enrichment returned a negative result.
+
+24. General Error Format
+
+All API errors must use:
+
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable explanation."
+  }
+}
+
+The frontend must use code for programmatic behavior.
+
+The frontend must NOT depend on exact human-readable message text.
+
+25. Common Error Codes
+
+Initial MVP error codes:
+
+INVALID_REQUEST
+MISSING_FILE
+UNSUPPORTED_FILE_TYPE
+FILE_TOO_LARGE
+EMPTY_FILE
+EMAIL_NOT_FOUND
+EMAIL_PARSE_FAILED
+ANALYSIS_NOT_FOUND
+ANALYSIS_FAILED
+INTERNAL_ERROR
+
+Additional error codes may be introduced when a real requirement emerges.
+
+26. HTTP Status Codes
+
+Use standard HTTP semantics.
+
+200 OK
+201 Created
+202 Accepted
+400 Bad Request
+404 Not Found
+409 Conflict
+413 Content Too Large
+422 Unprocessable Entity
+500 Internal Server Error
+
+Do not use 200 to represent a failed operation.
+
+27. Provenance Model
+
+All future analytical fields must identify their epistemic class where applicable.
+
+Supported classes:
+
+OBSERVED
+ENRICHED
+INFERRED
+AI-ASSESSED
+OBSERVED
+
+Directly present in the uploaded email or raw artifact.
+
+Examples:
+
+From header
+Received header
+URL in email body
+Attachment filename
+IP in header
+ENRICHED
+
+Obtained from external or local intelligence sources.
+
+Examples:
+
+MaxMind geolocation
+DNS result
+ASN
+IP reputation
+Domain reputation
+INFERRED
+
+Produced through deterministic rules or heuristics.
+
+Examples:
+
+Earliest reliable external relay
+Header anomaly
+Domain mismatch
+AI-ASSESSED
+
+Produced by an AI, ML, or LLM model.
+
+Examples:
+
+Phishing intent
+Credential-harvesting intent
+Social-engineering assessment
+
+An INFERRED or AI-ASSESSED conclusion must be traceable to supporting observed evidence.
+
+28. Risk and Confidence
+
+Risk and confidence are separate concepts.
+
+Example:
+
+{
+  "risk": {
+    "score": 87,
+    "level": "high"
+  },
+  "confidence": 0.93
+}
+
+Risk score represents threat severity.
+
+Confidence represents confidence in the assessment.
+
+Do not combine them into one percentage.
+
+This distinction must remain consistent throughout the frontend and backend.
+
+29. Future Investigation Endpoints
+
+The following endpoints belong to later stages of the MVP:
+
 Get Case
 GET /api/cases/{case_id}
-Get Analysis
+Get Case Analysis
 GET /api/cases/{case_id}/analysis
-Get Graph
+Get Entity Graph
 GET /api/cases/{case_id}/graph
 Get Timeline
 GET /api/cases/{case_id}/timeline
@@ -82,107 +719,184 @@ Generate Report
 POST /api/cases/{case_id}/report
 Download Report
 GET /api/cases/{case_id}/report
-5. Analysis Response
 
-The primary analysis response should expose a structure similar to:
+These endpoints must be added incrementally as their corresponding analysis stages are implemented.
 
-{
-  "analysis_id": "analysis_123",
-  "case_id": "case_123",
-  "status": "completed",
+They are part of the long-term API design but are not requirements for the initial upload/parse slice.
 
-  "risk": {
-    "score": 87,
-    "level": "high",
-    "confidence": 0.93
-  },
+30. Future Analysis Stages
 
-  "verdict": {
-    "label": "phishing",
-    "confidence": 0.93
-  },
+The API is designed so that future analysis stages can be added without changing the basic upload model.
 
-  "sender": {},
-  "authentication": {},
-  "received_chain": [],
-  "indicators": [],
-  "entities": [],
-  "geolocation": {},
-  "ai_analysis": {},
-  "evidence": []
-}
+Future stages include:
 
-The exact schema should be expanded as implementation proceeds.
+SPF
+DKIM
+DMARC
+Received-chain reconstruction
+IP enrichment
+Domain intelligence
+URL analysis
+AI intent
+Risk scoring
+Evidence
+Graph
+Map
+Report
 
-Do not add arbitrary fields independently in frontend and backend.
+These stages should extend the existing email/case model rather than replace it.
 
-6. Evidence Representation
+31. Frontend / Backend Ownership
+Codex-CLI
 
-Evidence should contain provenance.
+Codex owns backend implementation inside:
 
-Example:
+backend/
 
-{
-  "id": "evidence_123",
-  "type": "received_header",
-  "source": "email_header",
-  "value": "...",
-  "observed": true
-}
+including:
 
-Derived data should identify its origin.
+HTTP handlers
+email ingestion
+parser
+models
+persistence
+analysis execution
+API responses
+backend tests
+Agy-CLI
 
-Example:
+Agy owns frontend implementation inside:
 
-{
-  "type": "ip_geolocation",
-  "source": "maxmind",
-  "derived_from": "203.0.113.10"
-}
-7. Risk
+frontend/
 
-Risk is represented numerically and categorically.
+including:
 
-{
-  "score": 87,
-  "level": "high",
-  "confidence": 0.93
-}
+upload UI
+analysis progress UI
+parsed email display
+API client
+frontend state
+frontend tests
 
-Score and confidence are distinct.
+Neither agent may modify the other agent's codebase without explicit user authorization.
 
-Score = estimated threat/risk severity.
-Confidence = confidence in the assessment.
-8. Errors
+32. Contract Change Rule
 
-Errors should have a predictable structure:
+When a feature requires an API change:
 
-{
-  "error": {
-    "code": "INVALID_EMAIL",
-    "message": "The uploaded file could not be parsed."
-  }
-}
+Identify the required change.
+Update this document.
+Implement the backend side.
+Implement the frontend side.
+Test both sides.
+Verify that previously supported requests remain compatible where possible.
 
-Frontend code should depend on code, not on matching human-readable messages.
+Do not silently change:
 
-9. HTTP Status Codes
+endpoint paths
+HTTP methods
+request fields
+response fields
+field names
+field types
+error codes
 
-Use standard semantics.
+without updating this document.
 
-Examples:
+33. Frontend Contract Rules
 
-200 successful request
-201 resource created
-202 accepted for processing
-400 invalid request
-404 resource not found
-409 conflict
-422 semantically invalid input
-500 internal server error
-10. Contract Rules
-Do not silently rename fields.
-Do not change data types without updating this document.
-Do not return frontend-specific structures from backend business logic.
-Backend responses must remain deterministic in structure.
-Frontend must not rely on undocumented fields.
+The frontend must:
+
+consume documented API fields only
+handle documented status values
+handle loading states
+handle partial states
+handle structured errors
+avoid assuming optional data exists
+not treat processing state as threat severity
+not expose raw email content unnecessarily
+
+Temporary frontend mocks may be used during isolated frontend development only when clearly separated from real API integration.
+
+34. Backend Contract Rules
+
+The backend must:
+
+return documented structures
+use stable field names
+use stable data types
+use documented error codes
+validate all uploaded data
+preserve the original artifact
+avoid returning raw email content by default
+report partial analyzer failures explicitly
+avoid silently fabricating missing values
+35. Security Rules
+
+Uploaded email content must always be treated as untrusted input.
+
+The backend must not:
+
+execute attachments
+execute scripts from email content
+execute macros
+automatically visit untrusted URLs
+trust sender-provided metadata as authoritative
+store API keys or secrets in source code
+
+The frontend must not render untrusted raw email HTML directly into the application DOM.
+
+Email HTML rendering must use an isolated, sandboxed approach as specified by the UI/UX design system.
+
+36. MVP Constraints
+
+Do not introduce the following for the initial upload and parsing slice:
+
+GraphQL
+gRPC
+message brokers
+microservices
+streaming infrastructure
+mandatory WebSockets
+additional databases
+
+REST + JSON + multipart upload is sufficient for the initial MVP.
+
+The implementation should remain a modular monolith.
+
+37. Design and Forensic Consistency
+
+The API should provide enough structured information for the frontend to represent the forensic provenance model defined by the UI/UX specification:
+
+OBSERVED
+ENRICHED
+INFERRED
+AI-ASSESSED
+
+The frontend should be able to connect analytical conclusions back to supporting evidence.
+
+Geolocation must be treated as an estimate.
+
+AI attribution must be treated as an assessment rather than confirmed identity.
+
+Risk and confidence must remain separate.
+
+38. Definition of Contract Completion
+
+The initial API contract is considered implemented when:
+
+.eml upload works.
+Upload automatically creates a case.
+Original .eml is preserved.
+Upload returns case_id and email_id.
+Analysis can be started separately.
+Analysis state is represented explicitly.
+Parsed email metadata is returned.
+Complete parsed headers are returned.
+MIME metadata is returned.
+IP/domain/URL indicators are returned.
+Attachment metadata is returned.
+Parse failures return structured errors.
+Failed artifacts remain preserved.
+Frontend and backend use the same field names and types.
+Relevant backend and frontend tests pass.
