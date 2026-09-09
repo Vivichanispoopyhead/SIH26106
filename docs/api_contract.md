@@ -298,6 +298,51 @@ failed
 
 depending on the current implementation state.
 
+11.1 Canonical Analysis Result
+
+GET /api/emails/{email_id}/analysis
+
+This endpoint returns the latest analysis result independently from the parsed
+email artifact. It is the stable integration point for future deterministic
+analyzers and AI/ML providers.
+
+Responses:
+
+- `200 OK` when an analysis exists
+- `404 EMAIL_NOT_FOUND` when the email does not exist
+- `404 ANALYSIS_NOT_FOUND` when analysis has not been started
+
+Example:
+
+```json
+{
+  "analysis_id": "analysis_01J...",
+  "email_id": "email_01J...",
+  "case_id": "case_01J...",
+  "status": "completed",
+  "ai_assessment": {
+    "status": "not_available",
+    "classification": null,
+    "confidence": null,
+    "supporting_signals": [],
+    "evidence_references": [],
+    "provider": null,
+    "model": null,
+    "failure": {
+      "code": "AI_NOT_CONFIGURED",
+      "message": "No AI analyzer is configured."
+    }
+  },
+  "failure": null
+}
+```
+
+`ai_assessment.status` is one of `not_available`, `completed`, `failed`, or
+`partial`. Classification and confidence remain nullable and must not be
+fabricated. AI confidence describes confidence in the assessment, not identity
+confidence or physical attribution. The default backend response is
+`not_available` until an explicit AI adapter is configured.
+
 12. Upload-Only Email Response
 
 If the email has been uploaded but analysis has not yet produced parsed data:

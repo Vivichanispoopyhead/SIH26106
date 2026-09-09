@@ -54,12 +54,13 @@ func Parse(raw []byte) (*domain.ParsedEmail, error) {
 	}
 	result.MIME.ContentType = strings.ToLower(mediaType)
 
-	text, attachments, plain, html, err := inspectPart(message.Header, message.Body, mediaType, params)
+	text, plainText, attachments, plain, html, err := inspectPart(message.Header, message.Body, mediaType, params)
 	if err != nil {
 		return nil, err
 	}
 	result.MIME.HasPlainText, result.MIME.HasHTML = plain, html
 	result.Attachments = attachments
+	result.PlainTextBody = strings.TrimSpace(plainText.String())
 	result.MIME.AttachmentCount = len(attachments)
 	indicatorText := strings.Builder{}
 	for _, header := range headers {
@@ -162,12 +163,13 @@ func addresses(values []string) []string {
 	return result
 }
 
-func inspectPart(header mail.Header, body io.Reader, mediaType string, params map[string]string) (*strings.Builder, []domain.Attachment, bool, bool, error) {
+func inspectPart(header mail.Header, body io.Reader, mediaType string, params map[string]string) (*strings.Builder, *strings.Builder, []domain.Attachment, bool, bool, error) {
 	text := &strings.Builder{}
+	plainText := &strings.Builder{}
 	if strings.HasPrefix(mediaType, "multipart/") {
 		boundary := params["boundary"]
 		if boundary == "" {
-			return nil, nil, false, false, errors.New("multipart message missing boundary")
+			return nil, nil, nil, false, false, errors.New("multipart message missing boundary")
 		}
 		reader := multipart.NewReader(body, boundary)
 		attachments := []domain.Attachment{}
@@ -178,43 +180,47 @@ func inspectPart(header mail.Header, body io.Reader, mediaType string, params ma
 				break
 			}
 			if err != nil {
-				return nil, nil, false, false, fmt.Errorf("read MIME part: %w", err)
+				return nil, nil, nil, false, false, fmt.Errorf("read MIME part: %w", err)
 			}
 			partType, partParams, err := mime.ParseMediaType(part.Header.Get("Content-Type"))
 			if part.Header.Get("Content-Type") == "" {
 				partType = "text/plain"
 			} else if err != nil {
-				return nil, nil, false, false, fmt.Errorf("invalid MIME part content type: %w", err)
+				return nil, nil, nil, false, false, fmt.Errorf("invalid MIME part content type: %w", err)
 			}
 			if filename, attachment := attachmentName(part.Header); attachment {
 				item, err := readAttachment(filename, partType, part.Header.Get("Content-Transfer-Encoding"), part)
 				if err != nil {
-					return nil, nil, false, false, err
+					return nil, nil, nil, false, false, err
 				}
 				attachments = append(attachments, item)
 				continue
 			}
-			childText, childAttachments, childPlain, childHTML, err := inspectPart(mail.Header(part.Header), part, strings.ToLower(partType), partParams)
+			childText, childPlainText, childAttachments, childPlain, childHTML, err := inspectPart(mail.Header(part.Header), part, strings.ToLower(partType), partParams)
 			if err != nil {
-				return nil, nil, false, false, err
+				return nil, nil, nil, false, false, err
 			}
 			text.WriteString(childText.String())
+			plainText.WriteString(childPlainText.String())
 			attachments = append(attachments, childAttachments...)
 			plain = plain || childPlain
 			html = html || childHTML
 		}
-		return text, attachments, plain, html, nil
+		return text, plainText, attachments, plain, html, nil
 	}
 	decoded, err := decodedReader(body, header.Get("Content-Transfer-Encoding"))
 	if err != nil {
-		return nil, nil, false, false, err
+		return nil, nil, nil, false, false, err
 	}
 	if mediaType == "text/plain" || mediaType == "text/html" {
 		if _, err := io.Copy(text, io.LimitReader(decoded, 50<<20)); err != nil {
-			return nil, nil, false, false, err
+			return nil, nil, nil, false, false, err
+		}
+		if mediaType == "text/plain" {
+			plainText.WriteString(text.String())
 		}
 	}
-	return text, []domain.Attachment{}, mediaType == "text/plain", mediaType == "text/html", nil
+	return text, plainText, []domain.Attachment{}, mediaType == "text/plain", mediaType == "text/html", nil
 }
 
 func attachmentName(header textproto.MIMEHeader) (string, bool) {

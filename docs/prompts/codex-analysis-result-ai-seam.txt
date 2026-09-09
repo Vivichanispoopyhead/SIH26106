@@ -1,0 +1,92 @@
+You are implementing the next backend slice for SIH26106.
+
+Read these files first:
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/architecture.md
+- docs/codex-role.md
+- backend/internal/domain/email.go
+- backend/internal/email/service.go
+- backend/internal/httpapi/emails.go
+- backend/internal/httpapi/router.go
+- backend/internal/persistence/store.go
+- backend/internal/parser/email.go
+
+Task:
+Implement the canonical backend analysis-result contract and the AI analyzer integration seam. This is intended to unblock a separate AIML developer, so prioritize a stable typed interface and deterministic API behavior over integrating a real model or external provider.
+
+Ownership:
+- Modify backend/ only, except docs/api_contract.md and docs/analysis-pipeline.md if contract documentation must be updated.
+- Do not modify frontend/.
+- Do not introduce PostgreSQL, Redis, pgvector, WebSocket, or external AI SDK complexity for this task.
+- Preserve all existing upload, parse, and polling behavior.
+
+Requirements:
+
+1. Add a typed analysis-result domain model.
+   It must represent:
+   - analysis_id
+   - email_id
+   - case_id
+   - status
+   - AI assessment
+   - partial/unavailable analysis state
+   - failure information where applicable
+
+2. Add a typed AI assessment model with:
+   - status: "not_available", "completed", "failed", or "partial"
+   - nullable classification/label
+   - nullable confidence
+   - supporting signals
+   - evidence references
+   - provider and model metadata
+   - error/failure information when unavailable
+
+   Do not fabricate an AI classification or confidence. The default analyzer must return "not_available" unless a real analyzer is explicitly configured.
+
+3. Define an AI analyzer interface in a suitable backend package. The interface input must expose the normalized information an AIML implementation needs:
+   - sender/recipient metadata
+   - subject
+   - safely extracted plain-text body
+   - headers
+   - indicators
+   - attachment metadata
+   - stable email/analysis identifiers
+
+   Do not expose raw attachment bytes to the AIML interface. Do not execute scripts or retrieve URLs.
+
+4. Preserve the plain-text body needed for AIML analysis in the backend's parsed analysis data. Avoid returning raw HTML as executable content. If HTML is retained, represent it as metadata or sanitized text according to existing project conventions.
+
+5. Add:
+   GET /api/emails/{email_id}/analysis
+
+   Use the existing API error envelope and status conventions. Return:
+   - 200 for an existing analysis result
+   - 404 with EMAIL_NOT_FOUND when the email does not exist
+   - 404 with ANALYSIS_NOT_FOUND when no analysis has been started
+   - a suitable 500 error for storage failures
+
+6. Ensure the result is available after the existing POST analysis flow completes. Do not redesign the current upload/start-analysis endpoints.
+
+7. Update the persistence Store interface and both PostgresStore and MemoryStore as needed to save and retrieve the analysis result. Keep the existing migration style. Do not remove or rename existing columns without a strong reason.
+
+8. Add focused backend tests for:
+   - analysis-result retrieval after parsing
+   - analysis-not-found behavior
+   - missing email behavior
+   - default AI status being "not_available", with no fabricated label/confidence
+   - preservation of the normalized plain-text body supplied to the analyzer
+   - existing backend tests remaining valid
+
+9. Update docs/api_contract.md with the exact JSON shape and endpoint behavior. Update docs/analysis-pipeline.md only where necessary to clarify that AI assessment may be unavailable or partial.
+
+Acceptance criteria:
+- gofmt is clean.
+- go test ./... passes from backend/.
+- go build ./... passes from backend/.
+- No frontend files are changed.
+- The API response is deterministic in structure.
+- Risk score and AI confidence remain separate concepts.
+- AI output is clearly an assessment, never confirmed ground truth.
+- External AI integration is represented by an interface/adapter seam, not a hard-coded provider.

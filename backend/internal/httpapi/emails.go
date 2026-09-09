@@ -101,22 +101,37 @@ func (h emailHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h emailHandler) getAnalysis(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GetAnalysis(r.Context(), chi.URLParam(r, "email_id"))
+	switch {
+	case errors.Is(err, persistence.ErrEmailNotFound):
+		writeError(w, http.StatusNotFound, "EMAIL_NOT_FOUND", "The requested email was not found.")
+	case errors.Is(err, persistence.ErrAnalysisNotFound):
+		writeError(w, http.StatusNotFound, "ANALYSIS_NOT_FOUND", "No analysis has been started for this email.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The analysis could not be retrieved.")
+	default:
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
 func writeParsed(w http.ResponseWriter, emailID, caseID, filename string, parsed *domain.ParsedEmail) {
 	if parsed == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The parsed email is unavailable.")
 		return
 	}
 	writeJSON(w, http.StatusOK, struct {
-		EmailID     string                 `json:"email_id"`
-		CaseID      string                 `json:"case_id"`
-		Status      string                 `json:"status"`
-		Filename    string                 `json:"filename"`
-		Message     domain.MessageMetadata `json:"message"`
-		MIME        domain.MIMEMetadata    `json:"mime"`
-		Headers     []domain.Header        `json:"headers"`
-		Indicators  domain.Indicators      `json:"indicators"`
-		Attachments []domain.Attachment    `json:"attachments"`
-	}{emailID, caseID, "parsed", filename, parsed.Message, parsed.MIME, parsed.Headers, parsed.Indicators, parsed.Attachments})
+		EmailID       string                 `json:"email_id"`
+		CaseID        string                 `json:"case_id"`
+		Status        string                 `json:"status"`
+		Filename      string                 `json:"filename"`
+		Message       domain.MessageMetadata `json:"message"`
+		MIME          domain.MIMEMetadata    `json:"mime"`
+		Headers       []domain.Header        `json:"headers"`
+		Indicators    domain.Indicators      `json:"indicators"`
+		Attachments   []domain.Attachment    `json:"attachments"`
+		PlainTextBody string                 `json:"plain_text_body"`
+	}{emailID, caseID, "parsed", filename, parsed.Message, parsed.MIME, parsed.Headers, parsed.Indicators, parsed.Attachments, parsed.PlainTextBody})
 }
 
 func isTooLarge(err error) bool { var target *http.MaxBytesError; return errors.As(err, &target) }

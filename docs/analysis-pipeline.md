@@ -157,6 +157,11 @@ Failures from external providers should not crash the entire analysis.
 
 Analyze the semantic content of the email.
 
+The backend exposes a typed analyzer adapter boundary. Until an adapter is
+configured, the AI assessment is explicitly `not_available`; it must not
+contain a fabricated classification or confidence. Analyzer failures may be
+represented as a partial analysis result.
+
 Possible signals:
 
 Urgency

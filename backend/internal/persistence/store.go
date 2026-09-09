@@ -17,13 +17,18 @@ import (
 	"sih26106/backend/internal/domain"
 )
 
-var ErrEmailNotFound = errors.New("email not found")
+var (
+	ErrEmailNotFound    = errors.New("email not found")
+	ErrAnalysisNotFound = errors.New("analysis not found")
+)
 
 type Store interface {
 	CreateUpload(context.Context, string, []byte) (*domain.Email, error)
 	GetEmail(context.Context, string) (*domain.Email, error)
 	CreateAnalysis(context.Context, string) (*domain.Analysis, error)
 	UpdateAnalysis(context.Context, string, string, string) error
+	SaveAnalysisResult(context.Context, string, *domain.AnalysisResult) error
+	GetAnalysisResult(context.Context, string) (*domain.AnalysisResult, error)
 	SaveParsed(context.Context, string, *domain.ParsedEmail) error
 	SaveParseFailure(context.Context, string, string) error
 }
@@ -49,6 +54,7 @@ func (s *PostgresStore) migrate(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, status TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS emails (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), filename TEXT NOT NULL, raw_content BYTEA NOT NULL, status TEXT NOT NULL, parse_failure TEXT, parsed JSONB, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS analyses (id TEXT PRIMARY KEY, email_id TEXT NOT NULL REFERENCES emails(id), case_id TEXT NOT NULL REFERENCES cases(id), status TEXT NOT NULL, failure TEXT, created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)`,
+		`ALTER TABLE analyses ADD COLUMN IF NOT EXISTS result JSONB`,
 		`CREATE TABLE IF NOT EXISTS audit_events (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), event_type TEXT NOT NULL, timestamp TIMESTAMPTZ NOT NULL, actor TEXT NOT NULL, payload_hash TEXT NOT NULL, previous_hash TEXT, event_hash TEXT NOT NULL)`,
 	}
 	for _, statement := range statements {
@@ -116,6 +122,33 @@ func (s *PostgresStore) UpdateAnalysis(ctx context.Context, id, status, failure 
 	_, err := s.pool.Exec(ctx, `UPDATE analyses SET status=$2,failure=$3,updated_at=$4 WHERE id=$1`, id, status, failure, time.Now().UTC())
 	return err
 }
+func (s *PostgresStore) SaveAnalysisResult(ctx context.Context, id string, result *domain.AnalysisResult) error {
+	value, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	_, err = s.pool.Exec(ctx, `UPDATE analyses SET result=$2,status=$3,failure=$4,updated_at=$5 WHERE id=$1`, id, value, result.Status, failureMessage(result.Failure), time.Now().UTC())
+	return err
+}
+func (s *PostgresStore) GetAnalysisResult(ctx context.Context, emailID string) (*domain.AnalysisResult, error) {
+	row := s.pool.QueryRow(ctx, `SELECT result,status,COALESCE(failure,''),id,case_id FROM analyses WHERE email_id=$1 ORDER BY created_at DESC LIMIT 1`, emailID)
+	var raw []byte
+	var status, failure, analysisID, caseID string
+	if err := row.Scan(&raw, &status, &failure, &analysisID, &caseID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAnalysisNotFound
+		}
+		return nil, err
+	}
+	if len(raw) > 0 {
+		var result domain.AnalysisResult
+		if err := json.Unmarshal(raw, &result); err != nil {
+			return nil, err
+		}
+		return &result, nil
+	}
+	return pendingResult(analysisID, emailID, caseID, status, failure), nil
+}
 func (s *PostgresStore) SaveParsed(ctx context.Context, id string, parsed *domain.ParsedEmail) error {
 	value, err := json.Marshal(parsed)
 	if err != nil {
@@ -148,11 +181,12 @@ type MemoryStore struct {
 	mu       sync.RWMutex
 	emails   map[string]*domain.Email
 	analyses map[string]*domain.Analysis
+	results  map[string]*domain.AnalysisResult
 }
 
 // NewMemoryStore is only for isolated HTTP and service tests. The application uses PostgreSQL.
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{emails: map[string]*domain.Email{}, analyses: map[string]*domain.Analysis{}}
+	return &MemoryStore{emails: map[string]*domain.Email{}, analyses: map[string]*domain.Analysis{}, results: map[string]*domain.AnalysisResult{}}
 }
 func (s *MemoryStore) CreateUpload(_ context.Context, filename string, raw []byte) (*domain.Email, error) {
 	s.mu.Lock()
@@ -195,6 +229,32 @@ func (s *MemoryStore) UpdateAnalysis(_ context.Context, id, status, failure stri
 	analysis.UpdatedAt = time.Now().UTC()
 	return nil
 }
+func (s *MemoryStore) SaveAnalysisResult(_ context.Context, id string, result *domain.AnalysisResult) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.analyses[id]; !ok {
+		return ErrAnalysisNotFound
+	}
+	s.results[id] = cloneAnalysisResult(result)
+	return nil
+}
+func (s *MemoryStore) GetAnalysisResult(_ context.Context, emailID string) (*domain.AnalysisResult, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var latest *domain.Analysis
+	for _, analysis := range s.analyses {
+		if analysis.EmailID == emailID && (latest == nil || analysis.CreatedAt.After(latest.CreatedAt)) {
+			latest = analysis
+		}
+	}
+	if latest == nil {
+		return nil, ErrAnalysisNotFound
+	}
+	if result, ok := s.results[latest.ID]; ok {
+		return cloneAnalysisResult(result), nil
+	}
+	return pendingResult(latest.ID, latest.EmailID, latest.CaseID, latest.Status, latest.Failure), nil
+}
 func (s *MemoryStore) SaveParsed(_ context.Context, id string, parsed *domain.ParsedEmail) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -225,9 +285,38 @@ func cloneEmail(value *domain.Email) *domain.Email {
 	copy.RawContent = append([]byte(nil), value.RawContent...)
 	if value.Parsed != nil {
 		parsed := *value.Parsed
+		parsed.Headers = append([]domain.Header(nil), value.Parsed.Headers...)
+		parsed.Indicators.IPs = append([]string(nil), value.Parsed.Indicators.IPs...)
+		parsed.Indicators.Domains = append([]string(nil), value.Parsed.Indicators.Domains...)
+		parsed.Indicators.URLs = append([]string(nil), value.Parsed.Indicators.URLs...)
+		parsed.Attachments = append([]domain.Attachment(nil), value.Parsed.Attachments...)
 		copy.Parsed = &parsed
 	}
 	return &copy
+}
+func cloneAnalysisResult(value *domain.AnalysisResult) *domain.AnalysisResult {
+	copy := *value
+	copy.AIAssessment.SupportingSignals = append([]string{}, value.AIAssessment.SupportingSignals...)
+	copy.AIAssessment.EvidenceReferences = append([]string{}, value.AIAssessment.EvidenceReferences...)
+	return &copy
+}
+func failureMessage(failure *domain.Failure) string {
+	if failure == nil {
+		return ""
+	}
+	return failure.Message
+}
+func pendingResult(analysisID, emailID, caseID, status, failure string) *domain.AnalysisResult {
+	result := &domain.AnalysisResult{
+		AnalysisID: analysisID, EmailID: emailID, CaseID: caseID, Status: status,
+		AIAssessment: domain.AIAssessment{
+			Status: "not_available", SupportingSignals: []string{}, EvidenceReferences: []string{},
+		},
+	}
+	if failure != "" {
+		result.Failure = &domain.Failure{Code: "ANALYSIS_FAILED", Message: failure}
+	}
+	return result
 }
 func newID(prefix string) string {
 	bytes := make([]byte, 16)

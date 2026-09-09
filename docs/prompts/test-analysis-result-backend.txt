@@ -1,0 +1,151 @@
+SIH26106 Backend Analysis-Result Testing Instructions
+
+Run these steps from the repository root unless another directory is specified.
+
+1. Run backend tests
+
+cd /mnt/d/SIH/SIH26106/backend
+go test ./...
+go build ./...
+
+These tests cover upload, parsing, plain-text extraction, AI analyzer input,
+analysis-result retrieval, and missing-resource errors.
+
+2. Start local infrastructure
+
+cd /mnt/d/SIH/SIH26106
+docker compose up -d postgres redis
+
+3. Start the backend API
+
+Keep this terminal running:
+
+cd /mnt/d/SIH/SIH26106/backend
+DATABASE_URL='postgres://sih26106:change-me-for-local-development@localhost:5432/sih26106?sslmode=disable' \
+go run ./cmd/api
+
+4. Test the health endpoint
+
+Open a second terminal:
+
+curl -i http://localhost:8080/api/health
+
+Expected response:
+
+{"status":"ok"}
+
+5. Upload the included EML fixture
+
+curl -i -X POST http://localhost:8080/api/emails \
+  -F 'file=@/mnt/d/SIH/SIH26106/backend/test-fixtures/basic-phishing.eml'
+
+Expected response shape:
+
+{
+  "case_id": "case_...",
+  "email_id": "email_...",
+  "status": "uploaded"
+}
+
+Copy the returned email_id and replace <EMAIL_ID> in the commands below.
+
+6. Start analysis
+
+curl -i -X POST \
+  http://localhost:8080/api/emails/<EMAIL_ID>/analysis
+
+Expected response:
+
+{
+  "analysis_id": "analysis_...",
+  "email_id": "email_...",
+  "case_id": "case_...",
+  "status": "started"
+}
+
+7. Retrieve the canonical analysis result
+
+curl -s http://localhost:8080/api/emails/<EMAIL_ID>/analysis
+
+Expected response shape:
+
+{
+  "analysis_id": "analysis_...",
+  "email_id": "email_...",
+  "case_id": "case_...",
+  "status": "completed",
+  "ai_assessment": {
+    "status": "not_available",
+    "classification": null,
+    "confidence": null,
+    "supporting_signals": [],
+    "evidence_references": [],
+    "provider": null,
+    "model": null,
+    "failure": {
+      "code": "AI_NOT_CONFIGURED",
+      "message": "No AI analyzer is configured."
+    }
+  },
+  "failure": null
+}
+
+The not_available result is intentional. It proves that the AI integration
+seam works without inventing a classification or confidence value.
+
+8. Retrieve parsed email data
+
+curl -s http://localhost:8080/api/emails/<EMAIL_ID>
+
+Look for:
+
+{
+  "status": "parsed",
+  "plain_text_body": "..."
+}
+
+9. Test analysis-not-found behavior
+
+Upload another EML file but do not start analysis. Then run:
+
+curl -i http://localhost:8080/api/emails/<NEW_EMAIL_ID>/analysis
+
+Expected:
+
+HTTP/1.1 404 Not Found
+
+{
+  "error": {
+    "code": "ANALYSIS_NOT_FOUND",
+    "message": "No analysis has been started for this email."
+  }
+}
+
+10. Test missing-email behavior
+
+curl -i http://localhost:8080/api/emails/does-not-exist/analysis
+
+Expected error code:
+
+EMAIL_NOT_FOUND
+
+11. Run frontend validation
+
+cd /mnt/d/SIH/SIH26106/frontend
+npm test
+npm run build
+
+To run the frontend manually:
+
+npm run dev
+
+Open http://localhost:5173 and upload:
+
+/mnt/d/SIH/SIH26106/backend/test-fixtures/basic-phishing.eml
+
+12. Stop local infrastructure
+
+After testing:
+
+cd /mnt/d/SIH/SIH26106
+docker compose down

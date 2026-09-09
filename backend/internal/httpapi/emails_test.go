@@ -95,6 +95,9 @@ func TestUploadValidation(t *testing.T) {
 func TestAnalysisParsesEmailAndReturnsContractShape(t *testing.T) {
 	router, _ := newEmailRouter()
 	id := uploadID(t, router, []byte(multipartEmail()))
+	beforeAnalysis := httptest.NewRecorder()
+	router.ServeHTTP(beforeAnalysis, httptest.NewRequest(http.MethodGet, "/api/emails/"+id+"/analysis", nil))
+	assertError(t, beforeAnalysis, http.StatusNotFound, "ANALYSIS_NOT_FOUND")
 	before := httptest.NewRecorder()
 	router.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/api/emails/"+id, nil))
 	if before.Code != http.StatusOK {
@@ -147,6 +150,7 @@ func TestAnalysisParsesEmailAndReturnsContractShape(t *testing.T) {
 			Size     int64  `json:"size_bytes"`
 			Hash     string `json:"sha256"`
 		} `json:"attachments"`
+		PlainTextBody string `json:"plain_text_body"`
 	}
 	if err := json.NewDecoder(after.Body).Decode(&parsed); err != nil {
 		t.Fatal(err)
@@ -166,6 +170,43 @@ func TestAnalysisParsesEmailAndReturnsContractShape(t *testing.T) {
 	if len(parsed.Attachments) != 1 || parsed.Attachments[0].Filename != "invoice.pdf.exe" || parsed.Attachments[0].Size != 5 || parsed.Attachments[0].Hash == "" {
 		t.Fatalf("attachments = %#v", parsed.Attachments)
 	}
+	if parsed.PlainTextBody != "Visit https://phish.example.com/login at evil.example.net" {
+		t.Fatalf("plain text body = %q", parsed.PlainTextBody)
+	}
+
+	analysisResponse := httptest.NewRecorder()
+	router.ServeHTTP(analysisResponse, httptest.NewRequest(http.MethodGet, "/api/emails/"+id+"/analysis", nil))
+	if analysisResponse.Code != http.StatusOK {
+		t.Fatalf("analysis = %d: %s", analysisResponse.Code, analysisResponse.Body.String())
+	}
+	var result struct {
+		Status       string `json:"status"`
+		AIAssessment struct {
+			Status         string   `json:"status"`
+			Classification *string  `json:"classification"`
+			Confidence     *float64 `json:"confidence"`
+			Signals        []string `json:"supporting_signals"`
+			Failure        *struct {
+				Code string `json:"code"`
+			} `json:"failure"`
+		} `json:"ai_assessment"`
+	}
+	if err := json.NewDecoder(analysisResponse.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "completed" || result.AIAssessment.Status != "not_available" ||
+		result.AIAssessment.Classification != nil || result.AIAssessment.Confidence != nil ||
+		result.AIAssessment.Signals == nil || result.AIAssessment.Failure == nil ||
+		result.AIAssessment.Failure.Code != "AI_NOT_CONFIGURED" {
+		t.Fatalf("unexpected analysis result: %#v", result)
+	}
+}
+
+func TestAnalysisMissingEmail(t *testing.T) {
+	router, _ := newEmailRouter()
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/emails/missing/analysis", nil))
+	assertError(t, response, http.StatusNotFound, "EMAIL_NOT_FOUND")
 }
 
 func TestMissingOptionalHeadersAndParseFailurePreserveArtifact(t *testing.T) {

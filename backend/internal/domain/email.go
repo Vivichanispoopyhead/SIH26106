@@ -31,12 +31,40 @@ type Analysis struct {
 	UpdatedAt time.Time
 }
 
+// AnalysisResult is the stable API representation of a completed or partial
+// analysis. It separates the pipeline status from any AI assessment.
+type AnalysisResult struct {
+	AnalysisID   string       `json:"analysis_id"`
+	EmailID      string       `json:"email_id"`
+	CaseID       string       `json:"case_id"`
+	Status       string       `json:"status"`
+	AIAssessment AIAssessment `json:"ai_assessment"`
+	Failure      *Failure     `json:"failure"`
+}
+
+type AIAssessment struct {
+	Status             string   `json:"status"`
+	Classification     *string  `json:"classification"`
+	Confidence         *float64 `json:"confidence"`
+	SupportingSignals  []string `json:"supporting_signals"`
+	EvidenceReferences []string `json:"evidence_references"`
+	Provider           *string  `json:"provider"`
+	Model              *string  `json:"model"`
+	Failure            *Failure `json:"failure"`
+}
+
+type Failure struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 type ParsedEmail struct {
-	Message     MessageMetadata `json:"message"`
-	MIME        MIMEMetadata    `json:"mime"`
-	Headers     []Header        `json:"headers"`
-	Indicators  Indicators      `json:"indicators"`
-	Attachments []Attachment    `json:"attachments"`
+	Message       MessageMetadata `json:"message"`
+	MIME          MIMEMetadata    `json:"mime"`
+	Headers       []Header        `json:"headers"`
+	Indicators    Indicators      `json:"indicators"`
+	Attachments   []Attachment    `json:"attachments"`
+	PlainTextBody string          `json:"plain_text_body"`
 }
 
 type MessageMetadata struct {
