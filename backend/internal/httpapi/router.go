@@ -7,16 +7,21 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"sih26106/backend/internal/email"
 )
 
 // NewRouter configures the HTTP transport layer. Business modules can register
 // their routes here as they are introduced.
-func NewRouter(logger *slog.Logger, allowedOrigins []string) http.Handler {
+func NewRouter(logger *slog.Logger, allowedOrigins []string, service *email.Service) http.Handler {
 	router := chi.NewRouter()
 	router.Use(requestLogger(logger))
 	router.Use(cors(allowedOrigins))
 
 	router.Get("/api/health", health)
+	handler := emailHandler{service: service}
+	router.Post("/api/emails", handler.upload)
+	router.Post("/api/emails/{email_id}/analysis", handler.startAnalysis)
+	router.Get("/api/emails/{email_id}", handler.get)
 	router.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "The requested resource was not found.")
 	})

@@ -1,0 +1,8 @@
+From: Security Team <security@example.test>
+To: analyst@example.org
+Subject: Account verification required
+Date: Tue, 09 Sep 2026 10:00:00 +0000
+Message-ID: <basic-phishing@example.test>
+Content-Type: text/plain; charset=utf-8
+
+Verify your account at https://verify.example.test/login.

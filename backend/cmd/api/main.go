@@ -11,16 +11,24 @@ import (
 	"time"
 
 	"sih26106/backend/internal/config"
+	"sih26106/backend/internal/email"
 	"sih26106/backend/internal/httpapi"
+	"sih26106/backend/internal/persistence"
 )
 
 func main() {
 	cfg := config.Load()
 	logger := newLogger(cfg.Environment)
+	store, err := persistence.NewPostgresStore(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("postgres initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer store.Close()
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins),
+		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins, email.NewService(store)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

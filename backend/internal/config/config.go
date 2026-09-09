@@ -10,6 +10,7 @@ type Config struct {
 	Address        string
 	Environment    string
 	AllowedOrigins []string
+	DatabaseURL    string
 }
 
 // Load reads configuration from the process environment and applies safe local defaults.
@@ -18,6 +19,7 @@ func Load() Config {
 		Address:        valueOrDefault("APP_ADDR", ":8080"),
 		Environment:    valueOrDefault("APP_ENV", "development"),
 		AllowedOrigins: commaSeparated("APP_ALLOWED_ORIGINS", "http://localhost:5173"),
+		DatabaseURL:    valueOrDefault("DATABASE_URL", "postgres://sih26106:change-me-for-local-development@localhost:5432/sih26106?sslmode=disable"),
 	}
 }
 

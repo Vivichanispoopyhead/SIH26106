@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"sih26106/backend/internal/email"
+	"sih26106/backend/internal/persistence"
 )
 
 func TestHealth(t *testing.T) {
-	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, email.NewService(persistence.NewMemoryStore()))
 	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	response := httptest.NewRecorder()
 
