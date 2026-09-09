@@ -1,0 +1,166 @@
+import React, { useState } from 'react';
+import { ParsedEmailResponse } from '../../types/api';
+import { EmailHeaderCard } from './EmailStage/EmailHeaderCard';
+import { MimeSummaryCard } from './EmailStage/MimeSummaryCard';
+import { HeaderTable } from './HeadersStage/HeaderTable';
+import { IndicatorTable } from './IndicatorsStage/IndicatorTable';
+import { AttachmentList } from './EmailStage/AttachmentList';
+import { ProvenanceBadge } from '../common/ProvenanceBadge';
+import { MonoValue } from '../common/MonoValue';
+import './ParsedEmailWorkspace.css';
+
+interface ParsedEmailWorkspaceProps {
+  emailData: ParsedEmailResponse;
+}
+
+type WorkspaceView = 'all' | 'metadata' | 'headers' | 'indicators' | 'attachments';
+
+export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emailData }) => {
+  const [activeView, setActiveView] = useState<WorkspaceView>('all');
+
+  const headerCount = emailData.headers?.length || 0;
+  const indicatorCount =
+    (emailData.indicators?.ips?.length || 0) +
+    (emailData.indicators?.domains?.length || 0) +
+    (emailData.indicators?.urls?.length || 0);
+  const attachmentCount = emailData.attachments?.length || 0;
+
+  return (
+    <div className="parsed-workspace-container" data-testid="parsed-email-workspace">
+      {/* Forensic Triage Ribbon */}
+      <div className="case-triage-ribbon" data-testid="case-triage-ribbon">
+        <div className="triage-left">
+          <span className="triage-eyebrow">Case Ingestion Complete</span>
+          <h2 className="triage-subject" data-testid="triage-subject">
+            {emailData.message?.subject || emailData.filename || 'Parsed Email Sample'}
+          </h2>
+          <div className="triage-identifiers">
+            <span className="identifier-chip">
+              <span className="id-label">Email ID:</span>
+              <MonoValue value={emailData.email_id} label="Email ID" copyable={true} />
+            </span>
+            <span className="identifier-chip">
+              <span className="id-label">Case ID:</span>
+              <MonoValue value={emailData.case_id} label="Case ID" copyable={true} />
+            </span>
+            {emailData.filename && (
+              <span className="identifier-chip">
+                <span className="id-label">Artifact:</span>
+                <code className="id-file">{emailData.filename}</code>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="triage-right">
+          <div className="status-group">
+            <span className="status-label">Ingestion State</span>
+            <span className="status-parsed-pill" data-testid="parsed-status-badge">
+              ✓ PARSED
+            </span>
+          </div>
+          <div className="provenance-group">
+            <span className="status-label">Epistemic Class</span>
+            <ProvenanceBadge classification="OBSERVED" />
+          </div>
+        </div>
+      </div>
+
+      {/* Forensic Workspace Tabs */}
+      <div className="workspace-tabs-bar" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'all'}
+          className={`workspace-tab ${activeView === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveView('all')}
+          data-testid="view-tab-all"
+        >
+          Comprehensive View
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'metadata'}
+          className={`workspace-tab ${activeView === 'metadata' ? 'active' : ''}`}
+          onClick={() => setActiveView('metadata')}
+          data-testid="view-tab-metadata"
+        >
+          Envelope & MIME
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'indicators'}
+          className={`workspace-tab ${activeView === 'indicators' ? 'active' : ''}`}
+          onClick={() => setActiveView('indicators')}
+          data-testid="view-tab-indicators"
+        >
+          Indicators ({indicatorCount})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'headers'}
+          className={`workspace-tab ${activeView === 'headers' ? 'active' : ''}`}
+          onClick={() => setActiveView('headers')}
+          data-testid="view-tab-headers"
+        >
+          Headers ({headerCount})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'attachments'}
+          className={`workspace-tab ${activeView === 'attachments' ? 'active' : ''}`}
+          onClick={() => setActiveView('attachments')}
+          data-testid="view-tab-attachments"
+        >
+          Attachments ({attachmentCount})
+        </button>
+      </div>
+
+      {/* Structured Sections */}
+      <div className="workspace-content">
+        {(activeView === 'all' || activeView === 'metadata') && (
+          <section className="workspace-section" data-testid="section-envelope">
+            <EmailHeaderCard message={emailData.message} filename={emailData.filename} />
+            <MimeSummaryCard mime={emailData.mime} />
+          </section>
+        )}
+
+        {(activeView === 'all' || activeView === 'indicators') && (
+          <section className="workspace-section" data-testid="section-indicators">
+            <IndicatorTable indicators={emailData.indicators} />
+          </section>
+        )}
+
+        {(activeView === 'all' || activeView === 'headers') && (
+          <section className="workspace-section" data-testid="section-headers">
+            <HeaderTable headers={emailData.headers} />
+          </section>
+        )}
+
+        {(activeView === 'all' || activeView === 'attachments') && (
+          <section className="workspace-section" data-testid="section-attachments">
+            <AttachmentList attachments={emailData.attachments} />
+          </section>
+        )}
+
+        {/* Pipeline Progression Notice */}
+        <section className="pipeline-notice-box" data-testid="pipeline-notice">
+          <div className="notice-icon" aria-hidden="true">ℹ</div>
+          <div className="notice-content">
+            <h4 className="notice-title">Stage 01: Ingestion & Parsing Complete</h4>
+            <p className="notice-text">
+              The RFC 5322 structure, headers, MIME boundaries, extracted network indicators,
+              and attachment digests have been recorded in the case repository as <strong>OBSERVED</strong> facts.
+              Subsequent forensic stages (SPF/DKIM alignment, relay chain timeline, IP geolocation,
+              reputation enrichment, and entity graph) execute in subsequent pipeline slices.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+};

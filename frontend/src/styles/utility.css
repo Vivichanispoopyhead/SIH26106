@@ -1,0 +1,80 @@
+/* SIH26106 Forensic Typography & Layout Utilities */
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-cyan {
+  color: var(--accent-cyan);
+}
+
+.bg-canvas {
+  background-color: var(--bg-canvas);
+}
+
+.bg-primary {
+  background-color: var(--surface-primary);
+}
+
+.bg-secondary {
+  background-color: var(--surface-secondary);
+}
+
+.bg-elevated {
+  background-color: var(--surface-elevated);
+}
+
+.border-standard {
+  border: 1px solid var(--border-standard);
+}
+
+.border-subtle {
+  border: 1px solid var(--border-subtle);
+}
+
+.border-strong {
+  border: 1px solid var(--border-strong);
+}
+
+/* Monospace Snippets */
+.mono-block {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  overflow-x: auto;
+  word-break: break-all;
+}
+
+.mono-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-badge);
+  padding: 2px 6px;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

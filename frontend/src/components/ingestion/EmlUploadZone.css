@@ -1,0 +1,123 @@
+.upload-zone-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.upload-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background-color: var(--surface-primary);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  user-select: none;
+}
+
+.upload-dropzone:hover:not(.disabled) {
+  border-color: var(--accent-cyan);
+  background-color: var(--surface-secondary);
+}
+
+.upload-dropzone.dragover {
+  border-color: var(--accent-cyan);
+  background-color: var(--accent-cyan-tint);
+}
+
+.upload-dropzone.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dropzone-icon {
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dropzone-title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.dropzone-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.file-picker-link {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.dropzone-specs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.spec-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-badge);
+  padding: 3px 8px;
+}
+
+.upload-validation-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(225, 91, 100, 0.12);
+  border: 1px solid var(--verdict-high);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  color: #fca5a5;
+  font-size: 12px;
+}
+
+.error-icon {
+  font-size: 14px;
+  color: var(--verdict-high);
+}
+
+.error-text {
+  flex: 1;
+}
+
+.dismiss-error-btn {
+  background: transparent;
+  border: none;
+  color: #fca5a5;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.dismiss-error-btn:hover {
+  color: #ffffff;
+}

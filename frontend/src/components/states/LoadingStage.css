@@ -1,0 +1,212 @@
+.loading-stage-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.loading-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.loading-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.analysis-phase-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.loading-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.workflow-status-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.workflow-status-badge.status-uploading,
+.workflow-status-badge.status-starting_analysis,
+.workflow-status-badge.status-processing {
+  background-color: var(--accent-cyan-tint);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.workflow-status-badge.status-uploaded,
+.workflow-status-badge.status-completed,
+.workflow-status-badge.status-parsed {
+  background-color: rgba(50, 196, 141, 0.12);
+  border: 1px solid var(--verdict-clean);
+  color: var(--verdict-clean);
+}
+
+.workflow-status-badge.status-partial {
+  background-color: rgba(229, 169, 61, 0.12);
+  border: 1px solid var(--verdict-warning);
+  color: var(--verdict-warning);
+}
+
+.workflow-status-badge.status-failed {
+  background-color: rgba(225, 91, 100, 0.12);
+  border: 1px solid var(--verdict-high);
+  color: var(--verdict-high);
+}
+
+.pipeline-tracker {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.tracker-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tracker-step.pending {
+  color: var(--text-muted);
+}
+
+.tracker-step.active {
+  color: var(--accent-cyan);
+}
+
+.tracker-step.done {
+  color: var(--verdict-clean);
+}
+
+.tracker-step.failed {
+  color: var(--verdict-high);
+}
+
+.step-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-badge);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.tracker-divider {
+  color: var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.forensic-context-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.context-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.context-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-badge);
+  padding: 2px 6px;
+}
+
+.loading-failure-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: rgba(225, 91, 100, 0.1);
+  border: 1px solid var(--verdict-high);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.failure-message {
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.failure-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-retry {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-standard);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-retry:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-cancel {
+  background-color: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-cancel:hover {
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+}

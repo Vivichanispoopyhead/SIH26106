@@ -1,0 +1,44 @@
+.provenance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-badge);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.provenance-icon {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.provenance-observed {
+  background-color: var(--epistemic-observed-bg);
+  border: 1px solid var(--epistemic-observed-border);
+  color: var(--epistemic-observed);
+}
+
+.provenance-enriched {
+  background-color: var(--epistemic-enriched-bg);
+  border: 1px solid var(--epistemic-enriched-border);
+  color: var(--epistemic-enriched);
+}
+
+.provenance-inferred {
+  background-color: var(--epistemic-inferred-bg);
+  border: 1px solid var(--epistemic-inferred-border);
+  color: var(--epistemic-inferred);
+}
+
+.provenance-ai-assessed {
+  background-color: var(--epistemic-ai-bg);
+  border: 1px solid var(--epistemic-ai-border);
+  color: var(--epistemic-ai);
+}

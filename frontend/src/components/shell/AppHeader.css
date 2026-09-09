@@ -1,0 +1,92 @@
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background-color: var(--surface-primary);
+  border-bottom: 1px solid var(--border-standard);
+  padding: 12px 24px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  background-color: var(--accent-cyan-tint);
+  border: 1px solid var(--accent-cyan);
+  border-radius: var(--radius-badge);
+  padding: 3px 8px;
+  letter-spacing: 0.08em;
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.topbar-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.case-id-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+}
+
+.case-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.no-case-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.btn-new-sample {
+  background-color: var(--accent-cyan-tint);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-new-sample:hover {
+  background-color: var(--accent-cyan);
+  color: var(--bg-canvas);
+}

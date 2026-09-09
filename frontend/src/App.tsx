@@ -1,35 +1,62 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { fetchBackendHealth, HealthResponse, ApiError } from './services/api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  fetchBackendHealth,
+  HealthResponse,
+  uploadEmail,
+  startAnalysis,
+  getEmail,
+  ApiError,
+} from './services/api';
 import { API_BASE_URL } from './config/env';
+import { ParsedEmailResponse } from './types/api';
+import { AppHeader } from './components/shell/AppHeader';
+import { AppFooter } from './components/shell/AppFooter';
+import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
+import { LoadingStage, WorkflowState } from './components/states/LoadingStage';
+import { ErrorBanner } from './components/states/ErrorBanner';
+import { ParsedEmailWorkspace } from './components/investigation/ParsedEmailWorkspace';
 import './App.css';
 
 type BackendStatus = 'checking' | 'online' | 'error';
 
 export const App: React.FC = () => {
-  const [status, setStatus] = useState<BackendStatus>('checking');
+  // Backend health status
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking');
   const [healthData, setHealthData] = useState<HealthResponse | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [healthErrorMessage, setHealthErrorMessage] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
 
+  // Workflow state for Vertical Slice #1
+  const [workflowState, setWorkflowState] = useState<WorkflowState>('idle');
+  const [caseId, setCaseId] = useState<string | undefined>(undefined);
+  const [emailId, setEmailId] = useState<string | undefined>(undefined);
+  const [filename, setFilename] = useState<string | undefined>(undefined);
+  const [parsedEmail, setParsedEmail] = useState<ParsedEmailResponse | null>(null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
+
+  const pollingRef = useRef<boolean>(false);
+
+  // Health check handler
   const checkHealth = useCallback(async () => {
-    setStatus('checking');
-    setErrorMessage(null);
+    setBackendStatus('checking');
+    setHealthErrorMessage(null);
 
     try {
       const data = await fetchBackendHealth();
       setHealthData(data);
-      setStatus('online');
+      setBackendStatus('online');
       setLastChecked(new Date().toLocaleTimeString());
     } catch (err) {
       setHealthData(null);
-      setStatus('error');
+      setBackendStatus('error');
       setLastChecked(new Date().toLocaleTimeString());
       if (err instanceof ApiError) {
-        setErrorMessage(err.message);
+        setHealthErrorMessage(err.message);
       } else if (err instanceof Error) {
-        setErrorMessage(err.message);
+        setHealthErrorMessage(err.message);
       } else {
-        setErrorMessage('An unexpected error occurred while contacting the backend.');
+        setHealthErrorMessage('An unexpected error occurred while contacting the backend.');
       }
     }
   }, []);
@@ -38,115 +65,224 @@ export const App: React.FC = () => {
     checkHealth();
   }, [checkHealth]);
 
+  // Clean up any in-flight polling on unmount
+  useEffect(() => {
+    return () => {
+      pollingRef.current = false;
+    };
+  }, []);
+
+  // Poll for parsed email status
+  const pollForParsedEmail = async (id: string): Promise<ParsedEmailResponse> => {
+    pollingRef.current = true;
+    const maxAttempts = 30; // 30 * 800ms ≈ 24 seconds
+    const intervalMs = 800;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (!pollingRef.current) {
+        throw new Error('Analysis polling cancelled');
+      }
+
+      const emailData = await getEmail(id);
+
+      if (emailData.status === 'parsed') {
+        return emailData;
+      }
+
+      if (emailData.status === 'failed') {
+        throw new ApiError('The email parser could not process this sample.', 'EMAIL_PARSE_FAILED', 422);
+      }
+
+      if (emailData.status === 'partial') {
+        return emailData;
+      }
+
+      // If status is 'processing', 'uploaded', or 'started', wait and poll again
+      await new Promise((res) => setTimeout(res, intervalMs));
+    }
+
+    throw new ApiError('Analysis timed out waiting for parser completion.', 'ANALYSIS_FAILED', 504);
+  };
+
+  // Main EML Ingestion & Analysis Workflow
+  const handleFileSelected = async (file: File) => {
+    setError(null);
+    setCurrentFile(file);
+    setFilename(file.name);
+    setWorkflowState('uploading');
+
+    try {
+      // Step 1: Upload .EML -> POST /api/emails
+      const uploadRes = await uploadEmail(file);
+      setCaseId(uploadRes.case_id);
+      setEmailId(uploadRes.email_id);
+      setWorkflowState('uploaded');
+
+      // Step 2: Start Analysis -> POST /api/emails/{email_id}/analysis
+      setWorkflowState('starting_analysis');
+      await startAnalysis(uploadRes.email_id);
+
+      // Step 3: Wait for analysis & Fetch Parsed Email -> GET /api/emails/{email_id}
+      setWorkflowState('processing');
+      const emailResult = await pollForParsedEmail(uploadRes.email_id);
+
+      setParsedEmail(emailResult);
+      setWorkflowState('parsed');
+    } catch (err) {
+      pollingRef.current = false;
+      setError(err);
+      setWorkflowState('failed');
+    }
+  };
+
+  const handleRetry = () => {
+    if (currentFile) {
+      handleFileSelected(currentFile);
+    } else {
+      handleReset();
+    }
+  };
+
+  const handleReset = () => {
+    pollingRef.current = false;
+    setWorkflowState('idle');
+    setCaseId(undefined);
+    setEmailId(undefined);
+    setFilename(undefined);
+    setParsedEmail(null);
+    setCurrentFile(null);
+    setError(null);
+  };
+
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <span className="brand-badge">Forensic Platform MVP</span>
-        <h1 className="app-title">SIH26106 Email Threat Detection</h1>
-        <p className="app-subtitle">
-          AI-Powered Email Threat Intelligence & Forensic Analysis Platform
-        </p>
-      </header>
+    <div className="app-shell" data-testid="app-shell">
+      {/* Top Bar */}
+      <AppHeader
+        caseId={caseId}
+        emailId={emailId}
+        onResetCase={handleReset}
+      />
 
-      <main className="grid-cards">
-        {/* Frontend Status Card */}
-        <section className="status-card" data-testid="frontend-status-card">
-          <div className="card-header">
-            <h2 className="card-title">Frontend Shell</h2>
-            <span className="status-pill online" data-testid="frontend-status-badge">
-              <span className="status-dot" />
-              Operational
-            </span>
-          </div>
+      {/* Connectivity & Diagnostic Ribbon */}
+      <section className="diagnostic-ribbon" data-testid="diagnostic-ribbon">
+        <div className="diagnostic-left">
+          <span className="app-title-mini">SIH26106 Email Threat Detection</span>
+          <span className="status-pill online" data-testid="frontend-status-badge">
+            <span className="status-dot" />
+            Operational
+          </span>
+        </div>
 
-          <div className="info-rows">
-            <div className="info-row">
-              <span className="info-label">Framework</span>
-              <span className="info-value">React 19 + TypeScript</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Dev Server</span>
-              <span className="info-value mono">http://localhost:5173</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Role</span>
-              <span className="info-value">Forensic UI & Visualization</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Backend Connection Card */}
-        <section className="status-card" data-testid="backend-status-card">
-          <div className="card-header">
-            <h2 className="card-title">Backend Connection</h2>
-            {status === 'checking' && (
+        <div className="diagnostic-right">
+          <div className="backend-conn-status" data-testid="backend-status-card">
+            <span className="diagnostic-label">Backend:</span>
+            {backendStatus === 'checking' && (
               <span className="status-pill checking" data-testid="backend-status-badge">
                 <span className="status-dot pulsing" />
                 Checking
               </span>
             )}
-            {status === 'online' && (
+            {backendStatus === 'online' && (
               <span className="status-pill online" data-testid="backend-status-badge">
                 <span className="status-dot" />
                 Online
               </span>
             )}
-            {status === 'error' && (
+            {backendStatus === 'error' && (
               <span className="status-pill error" data-testid="backend-status-badge">
                 <span className="status-dot" />
                 Unavailable
               </span>
             )}
-          </div>
 
-          <div className="info-rows">
-            <div className="info-row">
-              <span className="info-label">Target API URL</span>
-              <span className="info-value mono">{API_BASE_URL}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Health Endpoint</span>
-              <span className="info-value mono">GET /api/health</span>
-            </div>
+            {backendStatus === 'online' && healthData && (
+              <span className="health-status-text" data-testid="backend-health-status">
+                ({healthData.status})
+              </span>
+            )}
 
-            {status === 'online' && healthData && (
-              <div className="info-row" data-testid="backend-health-status">
-                <span className="info-label">Reported Status</span>
-                <span className="info-value mono">{healthData.status}</span>
-              </div>
+            {backendStatus === 'error' && healthErrorMessage && (
+              <span className="health-error-text" data-testid="backend-error-message">
+                {healthErrorMessage}
+              </span>
             )}
 
             {lastChecked && (
-              <div className="info-row">
-                <span className="info-label">Last Checked</span>
-                <span className="info-value">{lastChecked}</span>
-              </div>
+              <span className="diagnostic-label" style={{ fontSize: '10px' }}>
+                {lastChecked}
+              </span>
             )}
-          </div>
 
-          {status === 'error' && errorMessage && (
-            <div className="error-banner" data-testid="backend-error-message" role="alert">
-              <strong>Connection Error:</strong> {errorMessage}
-            </div>
-          )}
-
-          <div className="card-actions">
             <button
-              className="btn-refresh"
+              type="button"
+              className="btn-refresh-health"
               onClick={checkHealth}
-              disabled={status === 'checking'}
+              disabled={backendStatus === 'checking'}
               data-testid="refresh-health-btn"
+              title="Re-check backend API health"
             >
-              {status === 'checking' ? 'Checking Health...' : 'Check Connection'}
+              {backendStatus === 'checking' ? '⟳' : 'Check API'}
             </button>
           </div>
-        </section>
+        </div>
+      </section>
+
+      {/* Main Workspace */}
+      <main className="main-content-viewport">
+        {error != null && (
+          <div className="error-container">
+            <ErrorBanner
+              error={error}
+              onRetry={handleRetry}
+              onDismiss={() => setError(null)}
+            />
+          </div>
+        )}
+
+        {workflowState === 'idle' && (
+          <section className="ingestion-section" data-testid="ingestion-section">
+            <div className="ingestion-hero">
+              <span className="hero-eyebrow">Forensic Investigation Pipeline</span>
+              <h2 className="hero-heading">Stage 01: Raw EML Sample Ingestion</h2>
+              <p className="hero-description">
+                Upload an RFC 5322 .eml artifact. The sample will be immutably preserved, an investigation case
+                will be automatically initialized, and the MIME structure, headers, and indicators will be extracted.
+              </p>
+            </div>
+
+            <EmlUploadZone
+              onFileSelected={handleFileSelected}
+              disabled={backendStatus === 'checking'}
+              isUploading={false}
+            />
+          </section>
+        )}
+
+        {workflowState !== 'idle' && workflowState !== 'parsed' && (
+          <section className="loading-stage-section">
+            <LoadingStage
+              state={workflowState}
+              caseId={caseId}
+              emailId={emailId}
+              filename={filename}
+              errorMessage={
+                error instanceof Error ? error.message : typeof error === 'string' ? error : undefined
+              }
+              onRetry={handleRetry}
+              onCancel={handleReset}
+            />
+          </section>
+        )}
+
+        {workflowState === 'parsed' && parsedEmail && (
+          <section className="workspace-stage-section">
+            <ParsedEmailWorkspace emailData={parsedEmail} />
+          </section>
+        )}
       </main>
 
-      <footer className="app-footer">
-        <span>SIH26106 Architecture Compliance: REST /api contract</span>
-        <span>Agy-CLI Frontend &bull; Codex-CLI Backend</span>
-      </footer>
+      {/* Footer */}
+      <AppFooter apiBaseUrl={API_BASE_URL} />
     </div>
   );
 };

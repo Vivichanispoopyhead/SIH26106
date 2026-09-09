@@ -1,0 +1,44 @@
+.app-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background-color: var(--surface-primary);
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 24px;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--verdict-clean);
+}
+
+.footer-mono {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.footer-divider {
+  color: var(--text-ghost);
+}

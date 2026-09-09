@@ -1,0 +1,33 @@
+.attachment-row:nth-child(even) {
+  background-color: var(--surface-primary);
+}
+
+.attachment-row:nth-child(odd) {
+  background-color: #14181D;
+}
+
+.attachment-row:hover {
+  background-color: var(--surface-hover);
+}
+
+.att-file-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-glyph {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.size-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.no-attachments-text {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 8px 0;
+}

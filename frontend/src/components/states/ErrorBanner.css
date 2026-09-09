@@ -1,0 +1,86 @@
+.error-banner-card {
+  background-color: rgba(225, 91, 100, 0.1);
+  border: 1px solid var(--verdict-high);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.error-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.error-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.error-icon {
+  font-size: 16px;
+  color: var(--verdict-high);
+}
+
+.error-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fca5a5;
+}
+
+.error-code-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-badge);
+  padding: 2px 6px;
+  color: #fca5a5;
+  letter-spacing: 0.04em;
+}
+
+.error-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: #fca5a5;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.error-dismiss-btn:hover {
+  color: #ffffff;
+}
+
+.error-banner-message {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-error-retry {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-standard);
+  color: var(--text-primary);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-error-retry:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+}

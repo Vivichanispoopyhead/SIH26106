@@ -1,0 +1,97 @@
+.forensic-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.envelope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 20px;
+}
+
+@media (max-width: 768px) {
+  .envelope-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.envelope-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.envelope-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.field-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.address-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.text-muted.italic {
+  font-style: italic;
+}
+
+.empty-message-note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
