@@ -245,12 +245,21 @@ contributing signals
 
 The scoring system should be deterministic for identical inputs when using deterministic analyzer inputs.
 
-The Gemini adapter does not calculate the final risk score. Its classification
-and confidence are AI-assessed signals that must remain separate from severity.
-The deterministic risk engine must bound any AI contribution and retain
-precedence for observable evidence such as executable attachment metadata and
-authentication results. The current checkout has no `backend/internal/risk/`
-package; implementing and wiring that engine is a separate follow-up task.
+The MVP risk rules are: SPF fail +20, DKIM fail +20, DMARC fail +20,
+unknown authentication +10, extracted URL +10, extracted IP +5, executable
+or double-extension attachment +25, and multiple extracted indicators +5.
+AI phishing or credential-harvesting contributes up to +30, malware up to +35,
+and fraud or payment-manipulation up to +30; each AI contribution is scaled by
+the bounded AI confidence. Scores are clamped to 100. Levels are low 0-24,
+medium 25-49, high 50-74, and critical 75-100.
+
+Verdict precedence is malware for executable attachments or accepted malware
+assessment; phishing for accepted phishing or credential-harvesting assessment
+with URL or authentication support; fraud for accepted fraud or
+payment-manipulation assessment with deterministic support; suspicious for
+strong deterministic signals; benign only for a valid benign AI assessment
+without deterministic signals; otherwise unknown. AI output remains
+AI-ASSESSED and observed evidence remains separately attributed.
 
 10. Stage 9 — Evidence
 

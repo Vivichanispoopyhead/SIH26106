@@ -11,6 +11,7 @@ import (
 	"sih26106/backend/internal/forensics"
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
+	"sih26106/backend/internal/risk"
 )
 
 const MaxUploadSize int64 = 50 << 20
@@ -115,6 +116,7 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		}
 		result.Failure = result.AIAssessment.Failure
 	}
+	result.Risk = risk.Evaluate(*result, parsed.Indicators, parsed.Attachments)
 	if err = s.store.SaveAnalysisResult(ctx, analysis.ID, result); err != nil {
 		return nil, err
 	}

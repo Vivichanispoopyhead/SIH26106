@@ -361,6 +361,14 @@ Example:
       "provenance": "inferred"
     }
   ],
+  "risk": {
+    "score": 0,
+    "level": "low",
+    "verdict": "unknown",
+    "confidence": null,
+    "contributing_signals": [],
+    "evidence_references": []
+  },
   "failure": null
 }
 ```
@@ -371,14 +379,15 @@ fabricated. AI confidence describes confidence in the assessment, not identity
 confidence or physical attribution. The default backend response is
 `not_available` until an explicit AI adapter is configured.
 
-When Gemini is configured, its classification is restricted to `benign`,
-`suspicious`, `phishing`, `credential_harvesting`, `malware`, `fraud`,
-`payment_manipulation`, or `unknown`. Gemini output is grounded in supplied
-evidence and does not determine the final risk score. Unknown fields,
-unsupported classifications, out-of-range confidence values, and evidence
-references that were not supplied by the backend are invalid provider output.
-`benign` is not a guarantee of safety, and `unknown` or `partial` is preferred
-when evidence is insufficient.
+The deterministic risk assessment contains an integer score from 0 to 100,
+with levels `low` (0-24), `medium` (25-49), `high` (50-74), and `critical`
+(75-100). Verdicts are `benign`, `suspicious`, `phishing`, `malware`, `fraud`,
+or `unknown`. Risk score and confidence are separate: confidence is nullable
+and describes confidence in the final assessment, never attacker identity.
+Each contributing signal contains `code`, `description`, `points`,
+`category`, `provenance`, and typed evidence references. AI points are bounded
+by the AI confidence and never erase stronger observed evidence. A failed AI
+provider still produces a deterministic risk result from available evidence.
 
 Authentication statuses are `pass`, `fail`, `neutral`, `none`, or `unknown`.
 Authentication evidence references identify the source header order and name.
