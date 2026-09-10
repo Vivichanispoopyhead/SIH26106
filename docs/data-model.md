@@ -152,6 +152,15 @@ RiskAssessment
 - verdict
 - confidence
 - contributing_signals
+- evidence_references
+
+RiskSignal
+- code
+- description
+- points
+- category
+- provenance
+- evidence_references
 Geolocation
 
 Represents estimated geographic information associated with infrastructure.

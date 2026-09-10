@@ -302,6 +302,11 @@ func cloneAnalysisResult(value *domain.AnalysisResult) *domain.AnalysisResult {
 	copy.Authentication.SPF.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.SPF.EvidenceReferences...)
 	copy.Authentication.DKIM.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DKIM.EvidenceReferences...)
 	copy.Authentication.DMARC.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DMARC.EvidenceReferences...)
+	copy.Risk.ContributingSignals = append([]domain.RiskSignal{}, value.Risk.ContributingSignals...)
+	copy.Risk.EvidenceReferences = append([]domain.EvidenceReference{}, value.Risk.EvidenceReferences...)
+	for index := range copy.Risk.ContributingSignals {
+		copy.Risk.ContributingSignals[index].EvidenceReferences = append([]domain.EvidenceReference{}, value.Risk.ContributingSignals[index].EvidenceReferences...)
+	}
 	return &copy
 }
 func failureMessage(failure *domain.Failure) string {
@@ -322,6 +327,7 @@ func pendingResult(analysisID, emailID, caseID, status, failure string) *domain.
 			DMARC: domain.AuthenticationCheck{Status: "none", EvidenceReferences: []domain.EvidenceReference{}, Explanation: "Authentication has not been evaluated."},
 		},
 		ReceivedChain: []domain.ReceivedRelay{},
+		Risk:          domain.RiskAssessment{Level: "low", Verdict: "unknown", Confidence: nil, ContributingSignals: []domain.RiskSignal{}, EvidenceReferences: []domain.EvidenceReference{}},
 	}
 	if failure != "" {
 		result.Failure = &domain.Failure{Code: "ANALYSIS_FAILED", Message: failure}
