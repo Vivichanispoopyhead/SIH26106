@@ -62,6 +62,7 @@ func TestGeminiAnalyzerRejectsInvalidProviderAssessments(t *testing.T) {
 		{"unsupported classification", `{"status":"completed","classification":"executive_impersonation","confidence":0.8,"supporting_signals":[],"evidence_references":[]}`},
 		{"unknown evidence reference", `{"status":"completed","classification":"phishing","confidence":0.8,"supporting_signals":[],"evidence_references":["header-99"]}`},
 		{"empty partial assessment", `{"status":"partial","supporting_signals":[],"evidence_references":[]}`},
+		{"unsupported response field", `{"status":"completed","classification":"phishing","confidence":0.8,"supporting_signals":[],"evidence_references":[],"risk_score":99}`},
 		{"malformed assessment JSON", `{not-json`},
 	}
 	for _, test := range tests {

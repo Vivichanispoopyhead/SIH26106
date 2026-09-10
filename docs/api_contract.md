@@ -371,6 +371,15 @@ fabricated. AI confidence describes confidence in the assessment, not identity
 confidence or physical attribution. The default backend response is
 `not_available` until an explicit AI adapter is configured.
 
+When Gemini is configured, its classification is restricted to `benign`,
+`suspicious`, `phishing`, `credential_harvesting`, `malware`, `fraud`,
+`payment_manipulation`, or `unknown`. Gemini output is grounded in supplied
+evidence and does not determine the final risk score. Unknown fields,
+unsupported classifications, out-of-range confidence values, and evidence
+references that were not supplied by the backend are invalid provider output.
+`benign` is not a guarantee of safety, and `unknown` or `partial` is preferred
+when evidence is insufficient.
+
 Authentication statuses are `pass`, `fail`, `neutral`, `none`, or `unknown`.
 Authentication evidence references identify the source header order and name.
 No DNS or external lookup is performed by this endpoint. Each received relay
