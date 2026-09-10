@@ -5,10 +5,11 @@ import {
   uploadEmail,
   startAnalysis,
   getEmail,
+  getAnalysis,
   ApiError,
 } from './services/api';
 import { API_BASE_URL } from './config/env';
-import { ParsedEmailResponse } from './types/api';
+import { ParsedEmailResponse, EmailAnalysisResponse } from './types/api';
 import { AppHeader } from './components/shell/AppHeader';
 import { AppFooter } from './components/shell/AppFooter';
 import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
@@ -32,6 +33,9 @@ export const App: React.FC = () => {
   const [emailId, setEmailId] = useState<string | undefined>(undefined);
   const [filename, setFilename] = useState<string | undefined>(undefined);
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailResponse | null>(null);
+  const [analysisData, setAnalysisData] = useState<EmailAnalysisResponse | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<unknown | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<unknown | null>(null);
 
@@ -125,8 +129,19 @@ export const App: React.FC = () => {
       // Step 3: Wait for analysis & Fetch Parsed Email -> GET /api/emails/{email_id}
       setWorkflowState('processing');
       const emailResult = await pollForParsedEmail(uploadRes.email_id);
-
       setParsedEmail(emailResult);
+
+      // Step 4: Fetch Canonical Analysis Result -> GET /api/emails/{email_id}/analysis
+      setAnalysisLoading(true);
+      try {
+        const analysisResult = await getAnalysis(uploadRes.email_id);
+        setAnalysisData(analysisResult);
+      } catch (analysisErr) {
+        setAnalysisError(analysisErr);
+      } finally {
+        setAnalysisLoading(false);
+      }
+
       setWorkflowState('parsed');
     } catch (err) {
       pollingRef.current = false;
@@ -150,6 +165,9 @@ export const App: React.FC = () => {
     setEmailId(undefined);
     setFilename(undefined);
     setParsedEmail(null);
+    setAnalysisData(null);
+    setAnalysisLoading(false);
+    setAnalysisError(null);
     setCurrentFile(null);
     setError(null);
   };
@@ -276,7 +294,12 @@ export const App: React.FC = () => {
 
         {workflowState === 'parsed' && parsedEmail && (
           <section className="workspace-stage-section">
-            <ParsedEmailWorkspace emailData={parsedEmail} />
+            <ParsedEmailWorkspace
+              emailData={parsedEmail}
+              analysisData={analysisData}
+              analysisLoading={analysisLoading}
+              analysisError={analysisError}
+            />
           </section>
         )}
       </main>
