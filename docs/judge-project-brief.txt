@@ -1,0 +1,501 @@
+SIH26106 - JUDGE PROJECT BRIEF
+
+============================================================
+1. ONE-LINE DESCRIPTION
+============================================================
+
+SIH26106 is an AI-powered email threat and forensic intelligence platform.
+It accepts an RFC 5322 .eml file, preserves the original artifact, extracts
+technical evidence, reconstructs forensic signals, and produces an explainable
+AI-assisted threat assessment.
+
+Short judge explanation:
+
+"We turn a suspicious email into a traceable forensic case by preserving the
+original artifact, extracting headers and indicators, analyzing authentication
+and relay signals, and using Gemini to provide an explainable phishing
+assessment with confidence and evidence references."
+
+============================================================
+2. PROBLEM
+============================================================
+
+Security analysts often need to inspect suspicious emails manually across
+multiple tools. Important evidence is spread across:
+
+- RFC 5322 headers
+- MIME structure
+- URLs, domains, and IP addresses
+- SPF, DKIM, and DMARC results
+- Received-server chains
+- Attachment metadata
+- Threat-intent analysis
+
+Existing tools may provide isolated results, but an analyst still needs to
+connect the evidence, understand provenance, and distinguish observed facts
+from probabilistic conclusions.
+
+Our MVP creates one investigation workflow for this process.
+
+============================================================
+3. CURRENT END-TO-END FLOW
+============================================================
+
+Upload .eml
+    |
+    v
+Validate file and size
+    |
+    v
+Create case and preserve raw artifact
+    |
+    v
+Parse RFC 5322 email and MIME structure
+    |
+    v
+Extract headers, body, URLs, domains, IPs, and attachments
+    |
+    v
+Hash attachment metadata with SHA-256
+    |
+    v
+Analyze authentication and Received headers
+    |
+    v
+Send normalized safe input to Gemini
+    |
+    v
+Return classification, confidence, signals, and evidence references
+    |
+    v
+Display results in the investigation workspace
+
+Implemented API workflow:
+
+POST /api/emails
+POST /api/emails/{email_id}/analysis
+GET  /api/emails/{email_id}
+GET  /api/emails/{email_id}/analysis
+
+============================================================
+4. WHAT WE HAVE BUILT
+============================================================
+
+Frontend:
+
+- React and TypeScript application
+- Dark forensic investigation interface
+- .eml drag-and-drop upload
+- Extension, empty-file, and 50 MB validation
+- Backend health indicator
+- Upload, processing, success, and failure states
+- Parsed email workspace
+- Header table
+- MIME summary
+- URL/domain/IP indicator display
+- Attachment metadata and hash display
+- API error handling using stable error codes
+- AI assessment panel and partial-state handling after the frontend
+  investigation workspace update
+
+Backend:
+
+- Go modular monolith
+- Chi HTTP router
+- Multipart .eml ingestion
+- Raw email preservation
+- RFC 5322 parsing
+- MIME and attachment inspection
+- Plain-text extraction for AI input
+- URL, domain, IPv4, and IPv6 extraction
+- Attachment SHA-256 hashes
+- Deterministic authentication-header analysis
+- SPF, DKIM, and DMARC result interpretation when reported in headers
+- Received-header parsing and relay-chain reconstruction
+- Structured analysis results
+- Structured machine-readable API errors
+- PostgreSQL persistence
+- In-memory store for isolated tests
+- Hash-chained audit-event foundation
+- Backend unit and HTTP tests
+
+AI:
+
+- Provider-independent Analyzer interface
+- Google Gemini adapter
+- Environment-based configuration
+- Configurable model, timeout, endpoint, and input limit
+- JSON-constrained provider output
+- Classification and confidence validation
+- Supporting signals
+- Evidence references
+- Provider and model metadata
+- Explicit not-available fallback when no key is configured
+- Structured provider failure behavior
+- No raw attachment bytes sent to the model
+- No automatic URL browsing or attachment execution
+
+Infrastructure:
+
+- PostgreSQL 16 for durable application data
+- Redis 7 prepared for caching and temporary state
+- Docker Compose for local infrastructure
+- Environment-based configuration
+- No secrets committed to Git
+
+============================================================
+5. ARCHITECTURE
+============================================================
+
+React + TypeScript frontend
+             |
+             v
+       REST JSON API
+             |
+             v
+       Go modular monolith
+       /       |        \
+   Parser   Forensics   AI adapter
+             |
+             v
+          PostgreSQL
+             |
+             v
+            Redis
+
+The backend is intentionally a modular monolith rather than microservices.
+This reduces deployment and debugging complexity for an MVP while keeping
+responsibilities separated internally.
+
+Important backend boundaries:
+
+- parser: reads and normalizes untrusted email content
+- forensics: deterministic header and relay analysis
+- ai: provider adapter and validated AI assessment
+- email service: coordinates the pipeline
+- persistence: PostgreSQL and test store implementations
+- httpapi: transport, routing, and API error mapping
+
+============================================================
+6. DATA AND FORENSIC PROVENANCE
+============================================================
+
+The system distinguishes:
+
+OBSERVED:
+Directly present in the raw email, such as a header value or URL.
+
+PARSED:
+Normalized from observed data, such as a parsed address or relay structure.
+
+INFERRED:
+Derived by deterministic logic, such as relay ordering or an anomaly.
+
+AI-ASSESSED:
+Probabilistic output from Gemini, such as phishing intent.
+
+This distinction prevents an AI conclusion from being presented as confirmed
+ground truth.
+
+AI confidence means confidence in the classification, not confidence in the
+identity or physical location of an attacker.
+
+============================================================
+7. AI INTEGRATION
+============================================================
+
+The backend uses this stable interface:
+
+type Analyzer interface {
+    Assess(context.Context, Input) (domain.AIAssessment, error)
+}
+
+The adapter receives:
+
+- sender and recipient metadata
+- subject and date
+- normalized plain-text body
+- headers
+- extracted indicators
+- attachment names, types, sizes, and hashes
+- case and analysis identifiers
+
+The adapter does not receive attachment bytes. It does not execute content,
+run scripts, or browse URLs.
+
+Configuration is local runtime configuration:
+
+GEMINI_API_KEY
+GEMINI_MODEL
+GEMINI_TIMEOUT
+
+Example successful result:
+
+{
+  "status": "completed",
+  "ai_assessment": {
+    "status": "completed",
+    "classification": "Phishing",
+    "confidence": 0.9,
+    "supporting_signals": [
+      "Urgent account verification language",
+      "Credential collection URL pattern"
+    ],
+    "evidence_references": [
+      "message.subject",
+      "plain_text_body",
+      "indicators.urls"
+    ],
+    "provider": "google",
+    "model": "gemini-2.5-flash"
+  }
+}
+
+If Gemini fails, parsing and deterministic evidence remain available. The API
+returns a partial result rather than hiding or fabricating evidence.
+
+============================================================
+8. WHAT WE WILL BUILD NEXT
+============================================================
+
+Immediate:
+
+1. Validate the merged frontend AI assessment panel against the live backend.
+2. Improve the demo fixture set with phishing, benign, spoofing, and
+   authentication-result examples.
+3. Add a visible evidence drawer linking AI signals to observed fields.
+4. Add a deterministic risk score that remains separate from AI confidence.
+
+Next:
+
+- More complete SPF/DKIM/DMARC alignment analysis
+- Better Received-chain anomaly explanations
+- Domain and URL enrichment through safe, bounded adapters
+- IP geolocation with uncertainty labels
+- Reputation adapters with graceful failure
+- Investigation timeline
+- Entity relationship graph
+- Map visualization for estimated infrastructure locations
+- PDF report generation
+
+Later:
+
+- Redis analyzer caching
+- Campaign similarity using pgvector
+- Background jobs or WebSocket progress for long analyses
+- Authentication and multi-user case access
+- Production deployment and observability
+
+The MVP priority is not to build every future feature. The priority is a
+credible, explainable vertical slice that works reliably during judging.
+
+============================================================
+9. SCALABILITY
+============================================================
+
+Current scale:
+
+- A modular monolith is sufficient for the hackathon and early MVP.
+- HTTP handlers are stateless apart from PostgreSQL-backed data.
+- PostgreSQL can be scaled vertically and later read-replicated.
+- Redis can cache repeated analyzer and enrichment results.
+- External providers are isolated behind interfaces.
+- The AI adapter can be replaced without changing the frontend contract.
+
+How we scale later:
+
+1. Move long-running analysis from synchronous request handling to a job queue.
+2. Store analysis-stage progress in Redis/PostgreSQL.
+3. Run multiple stateless Go API instances behind a load balancer.
+4. Run analysis workers separately from API processes.
+5. Cache repeated domain/IP/URL analysis.
+6. Add PostgreSQL indexes and partitioning for large event and evidence tables.
+7. Use object storage for large raw email artifacts while keeping hashes and
+   metadata in PostgreSQL.
+8. Add rate limits and provider quotas.
+9. Add tracing, metrics, structured audit logs, and retry policies.
+
+Why not microservices now:
+
+Microservices would add network, deployment, and debugging overhead before the
+MVP has enough traffic to justify it. Internal module boundaries preserve a
+future extraction path without slowing the hackathon.
+
+============================================================
+10. COST ESTIMATE
+============================================================
+
+Local development:
+
+- Go, React, PostgreSQL, Redis, Docker Compose: approximately zero software
+  licensing cost.
+- Gemini cost depends on the Google account, model, token volume, and current
+  Google pricing.
+
+Small hosted MVP estimate:
+
+- One small application server: approximately 5 to 25 USD/month.
+- Managed PostgreSQL: approximately 15 to 50 USD/month, depending on provider
+  and storage.
+- Managed Redis: approximately 0 to 20 USD/month for a small workload.
+- Object storage and backups: approximately 1 to 10 USD/month.
+- Domain, monitoring, and network: approximately 0 to 20 USD/month.
+- Gemini usage: variable and usage-based; a small demo may cost only a few
+  dollars or less, but production cost depends on input length and volume.
+
+Practical small-MVP range:
+
+Approximately 20 to 100 USD/month before significant AI usage, depending on
+cloud vendor and managed-service choices.
+
+For judging, the system can run locally with Docker Compose and does not
+require a paid production cluster.
+
+Never place API keys in the repository. Use environment variables or a
+secret manager in deployment.
+
+============================================================
+11. SECURITY QUESTIONS JUDGES MAY ASK
+============================================================
+
+Q: Do you execute attachments?
+A: No. We only extract metadata and SHA-256 hashes.
+
+Q: Do you browse links in the email?
+A: No. URLs are extracted as evidence. Automatic retrieval is deliberately
+disabled.
+
+Q: Can prompt injection inside an email control the AI?
+A: Email content is treated as untrusted data. The provider prompt instructs
+the model not to follow instructions inside the email, and the adapter sends
+normalized data rather than executing it.
+
+Q: What happens if Gemini is unavailable?
+A: The backend returns a structured partial or failed AI assessment while
+preserving parsed and deterministic evidence.
+
+Q: Are AI results treated as facts?
+A: No. They are explicitly labeled AI-ASSESSED and include confidence and
+evidence references.
+
+Q: How are secrets handled?
+A: API keys are loaded from environment variables and are not committed,
+logged, or returned by the API.
+
+============================================================
+12. TECHNICAL QUESTIONS JUDGES MAY ASK
+============================================================
+
+Q: Why Go?
+A: Go provides a small, fast, type-safe backend with simple deployment and
+good support for concurrent analysis workers later.
+
+Q: Why PostgreSQL?
+A: The data is relational and evidence-linked: cases, emails, headers,
+indicators, analysis results, and audit events benefit from transactions and
+structured queries.
+
+Q: Why is Redis present?
+A: It is reserved for short-lived state, rate limits, and analyzer caching.
+The MVP does not depend on it for core correctness.
+
+Q: Why is the AI provider behind an interface?
+A: It prevents the domain and API from being coupled to Gemini. Another model
+or local classifier can be substituted later.
+
+Q: Is the analysis deterministic?
+A: Parsing, extraction, authentication interpretation, and relay processing
+are deterministic. AI output is probabilistic and is labeled accordingly.
+
+Q: How do you test it?
+A: We use Go unit tests, HTTP tests, parser fixtures, provider test servers,
+and React/Vitest tests. We also validate the live upload-to-analysis flow with
+the local API.
+
+Q: Why separate risk and confidence?
+A: Risk describes threat severity. Confidence describes how strongly the
+available evidence supports the conclusion. Combining them would be
+misleading.
+
+============================================================
+13. COMPETITIVE DIFFERENTIATION
+============================================================
+
+VirusTotal:
+
+- Strong broad indicator and reputation aggregation.
+- Our focus is a guided email-forensics workflow with preserved email
+  provenance, relay reconstruction, and explainable AI intent.
+
+ANY.RUN and sandbox platforms:
+
+- Strong dynamic execution and malware sandboxing.
+- Our platform is intentionally safer for initial email triage: it does not
+  execute attachments or browse URLs automatically.
+- We focus on headers, authentication, infrastructure evidence, and explainable
+  case reconstruction.
+
+Maltego:
+
+- Strong general-purpose relationship and graph investigation.
+- Our product starts with a specialized email evidence model and automatically
+  turns one email into structured forensic entities and signals.
+
+GreyNoise and reputation services:
+
+- Strong network and IP intelligence.
+- Our platform connects network indicators back to the original email evidence
+  and AI-assessed intent rather than presenting isolated reputation results.
+
+Traditional secure email gateways:
+
+- Strong prevention and mail-flow controls.
+- Our platform is an analyst-facing forensic investigation and explanation
+  tool for suspicious artifacts, including emails already received or
+  collected as evidence.
+
+Our core differentiation:
+
+1. Evidence-first workflow: preserve the artifact and trace conclusions to it.
+2. Email-specific forensic context: headers, MIME, relays, authentication,
+   indicators, and AI intent in one flow.
+3. Safe-by-default analysis: no attachment execution and no automatic URL
+   retrieval.
+4. Explicit epistemic labeling: observed, parsed, inferred, and AI-assessed
+   information are not mixed.
+5. Explainable AI output: classification, confidence, signals, and evidence
+   references are returned together.
+6. Modular provider design: Gemini can be replaced without redesigning the
+   product.
+
+We should not claim that the platform replaces VirusTotal, sandboxing, or
+enterprise secure email gateways. It is an MVP investigation and triage layer
+that combines their relevant ideas into a focused, explainable email-forensics
+workflow.
+
+============================================================
+14. DEMO SCRIPT
+============================================================
+
+1. Open the application and show backend connectivity.
+2. Upload the supplied suspicious .eml fixture.
+3. Show that the raw artifact is preserved while only structured results are
+   exposed to the UI.
+4. Show headers, MIME information, URLs, domains, IPs, and attachment hashes.
+5. Show SPF/DKIM/DMARC and Received-chain results.
+6. Show Gemini classification and confidence.
+7. Point to supporting signals and evidence references.
+8. Explain that AI confidence is not attacker-identity confidence.
+9. Explain that a provider failure leaves parsed evidence available.
+10. Mention the modular design and next roadmap: enrichment, graph, map, and
+    reporting.
+
+============================================================
+15. FINAL POSITIONING
+============================================================
+
+SIH26106 is not trying to be a complete replacement for every security
+platform. It is a focused, safe, and explainable forensic email investigation
+MVP. Its value is bringing raw email evidence, deterministic protocol signals,
+infrastructure clues, and AI-assisted intent assessment into one traceable
+workflow.

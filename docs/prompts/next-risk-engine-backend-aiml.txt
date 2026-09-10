@@ -1,0 +1,328 @@
+SIH26106 - NEXT BACKEND/AIML FEATURE: DETERMINISTIC RISK ENGINE
+
+The next backend/AIML feature should be the deterministic risk and verdict
+engine, with the Gemini assessment treated as one signal among several.
+
+Already available:
+
+- Email parsing
+- Indicator extraction
+- SPF/DKIM/DMARC interpretation
+- Received-chain analysis
+- Gemini classification and confidence
+- Evidence references
+- Persisted analysis results
+
+Missing:
+
+- Risk score
+- Severity level
+- Verdict
+- Contributing signals
+- Final assessment confidence
+
+Target flow:
+
+Observed evidence
+      +
+Authentication signals
+      +
+Relay/header signals
+      +
+Extracted indicators
+      +
+AI assessment
+      |
+      v
+Risk score + severity + verdict + contributing signals
+
+Do not start enrichment, graph, maps, PDF, Redis caching, or WebSockets yet.
+The risk engine makes the existing work feel like a complete product and can
+be tested without additional external services.
+
+===============================================================================
+PROMPT FOR THE BACKEND AND AIML DEVELOPERS
+===============================================================================
+
+You are implementing the next SIH26106 backend slice: a deterministic risk
+and verdict engine that combines forensic signals and the existing Gemini
+assessment.
+
+Before starting, synchronize your checkout:
+
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+If git fetch reports a local certificate problem, do not disable SSL
+verification globally. Resolve the local Git/network certificate issue first
+or use a trusted network environment.
+
+Read:
+- docs/architecture.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/api_contract.md
+- docs/codex-role.md
+- backend/internal/domain/email.go
+- backend/internal/email/service.go
+- backend/internal/forensics/header_analysis.go
+- backend/internal/ai/analyzer.go
+- backend/internal/ai/gemini.go
+- backend/internal/persistence/store.go
+- backend/internal/httpapi/emails.go
+
+Ownership:
+- Modify backend/ only.
+- Documentation may be updated when the API contract changes.
+- Do not modify frontend/.
+- Do not change upload endpoint behavior.
+- Do not add Redis, pgvector, WebSocket, live DNS, URL crawling, or external
+  reputation providers in this task.
+- Preserve the existing Gemini adapter and provider-independent Analyzer
+  interface.
+
+Goal:
+Add a deterministic risk engine that produces a threat score, risk level,
+verdict, confidence, and contributing signals from the existing analysis data.
+
+1. Add typed domain models.
+
+Add a RiskAssessment model containing:
+
+- score: integer from 0 to 100
+- level: low, medium, high, or critical
+- verdict: benign, suspicious, phishing, malware, fraud, or unknown
+- confidence: nullable float from 0 to 1
+- contributing_signals: typed list
+- evidence_references: typed list
+
+Add a RiskSignal model containing:
+
+- code
+- description
+- points
+- severity or category
+- provenance
+- evidence references
+
+Do not merge risk score and confidence. They represent different concepts.
+
+2. Define deterministic scoring rules.
+
+Use a small, documented, configurable rule table. Do not use arbitrary
+unexplained magic numbers scattered through handlers.
+
+Initial signals may include:
+
+- SPF fail: +20
+- DKIM fail: +20
+- DMARC fail: +20
+- suspicious or malformed authentication state: +10
+- extracted URL present: +10
+- extracted IP indicator present: +5
+- executable or double-extension attachment: +25
+- multiple suspicious indicators: bounded additional points
+- AI classification phishing: +30
+- AI classification credential_harvesting: +30
+- AI classification malware: +35
+- AI classification fraud or payment_manipulation: +30
+- AI classification benign: do not subtract enough to hide strong observed
+  evidence; cap or neutralize the AI contribution explicitly
+- AI confidence must scale the AI-derived contribution or determine whether it
+  is accepted, but it must not directly become the risk score
+
+Keep the exact weights modest and document them. The result must be
+deterministic when the analyzer inputs are unchanged.
+
+3. Define score levels.
+
+Use a clear mapping such as:
+
+- 0-24: low
+- 25-49: medium
+- 50-74: high
+- 75-100: critical
+
+Clamp the final score to 100.
+
+4. Define verdict precedence.
+
+The verdict must not be based only on the AI label.
+
+Use deterministic precedence such as:
+
+- malware or executable attachment with strong evidence -> malware
+- phishing or credential-harvesting AI result plus URL/authentication signals
+  -> phishing
+- fraud or payment-manipulation AI result plus supporting signals -> fraud
+- strong deterministic signals without a confident AI result -> suspicious
+- no meaningful signals and a valid benign assessment -> benign
+- otherwise -> unknown
+
+Document the precedence and ensure an AI result is labeled AI-ASSESSED.
+
+5. Define confidence separately.
+
+Confidence should describe confidence in the final risk assessment, not
+attacker identity.
+
+A reasonable MVP rule:
+
+- deterministic-only result: confidence based on the number and quality of
+  deterministic signals
+- AI-supported result: combine bounded deterministic confidence and AI
+  confidence without allowing either to exceed 1
+- no useful signals: confidence is null or a low explicit value according to
+  the contract
+
+Do not fabricate confidence when there is no basis for it.
+
+6. Preserve provenance.
+
+Every contributing signal must identify:
+
+- whether it is observed, parsed, inferred, or AI-assessed
+- supporting evidence references
+- the source header/body/indicator when available
+
+Do not create evidence references that do not exist.
+
+7. Integrate the risk assessment.
+
+Add the risk assessment to the existing AnalysisResult response:
+
+{
+  "risk": {
+    "score": 0,
+    "level": "low",
+    "verdict": "unknown",
+    "confidence": null,
+    "contributing_signals": [],
+    "evidence_references": []
+  }
+}
+
+Keep the existing fields unchanged:
+
+- analysis_id
+- email_id
+- case_id
+- status
+- ai_assessment
+- authentication
+- received_chain
+- failure
+
+Persist the risk result through both PostgreSQL and MemoryStore.
+
+8. Handle partial AI failure safely.
+
+If Gemini fails:
+
+- retain authentication, relay, parser, and indicator results
+- calculate a deterministic risk assessment from available signals
+- set the overall analysis status to partial when appropriate
+- do not invent an AI classification or confidence
+- include the AI failure as a structured assessment failure
+
+9. Add focused tests.
+
+Test:
+
+- no signals produces low/unknown with empty signal arrays
+- SPF/DKIM/DMARC failures increase risk
+- executable attachment increases risk
+- URL indicators contribute to risk
+- phishing AI result combines with deterministic signals
+- benign AI result cannot erase strong observed evidence
+- provider failure still produces a deterministic risk result
+- score clamps at 100
+- score levels are correct at all boundaries
+- verdict precedence is deterministic
+- confidence remains separate from score
+- evidence references are preserved
+- PostgreSQL JSON persistence shape and MemoryStore behavior
+- existing upload, parsing, authentication, relay, Gemini, and HTTP tests remain
+  valid
+
+10. Update documentation.
+
+Update:
+
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/data-model.md if necessary
+
+Document:
+
+- risk response shape
+- score ranges
+- verdict categories
+- confidence meaning
+- deterministic rule behavior
+- AI and observed-evidence separation
+- partial analyzer behavior
+
+Run:
+
+cd backend
+gofmt -w ./...
+go test ./...
+go build ./...
+
+Review the API response manually with the existing fixture:
+
+docker compose up -d postgres redis
+
+DATABASE_URL='postgres://sih26106:change-me-for-local-development@localhost:5432/sih26106?sslmode=disable' \
+go run ./cmd/api
+
+Then upload an EML and inspect:
+
+GET /api/emails/{email_id}/analysis
+
+Do not include or print API keys in logs, tests, commits, or reports.
+
+Commit:
+
+git add backend docs
+git commit -m "Add deterministic risk assessment engine"
+git push origin <feature-branch>
+
+Report:
+
+- commit hash
+- scoring rules
+- verdict precedence
+- confidence calculation
+- tests and build results
+- example analysis response
+
+===============================================================================
+RECOMMENDED DIVISION BETWEEN BOTH DEVELOPERS
+===============================================================================
+
+Backend developer owns:
+
+- Risk domain models
+- Rule table
+- Scoring engine
+- Verdict precedence
+- Persistence
+- API response
+- Tests and documentation
+
+AIML developer owns:
+
+- Reviewing how Gemini labels map into risk categories
+- Ensuring AI output remains strictly validated
+- Adding tests for phishing, benign, malware, and fraud classifications
+- Verifying AI confidence is used only as a bounded input
+- Reviewing prompt wording so the model returns evidence references that match
+  the backend's available fields
+
+They should not both edit the same files at the same time. The backend
+developer should implement the engine first using a fake AIAssessment in tests;
+the AIML developer should review the mapping and add provider-specific test
+cases afterward.

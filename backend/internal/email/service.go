@@ -34,6 +34,7 @@ func NewService(store persistence.Store) *Service {
 }
 
 func NewServiceWithAnalyzer(store persistence.Store, analyzer ai.Analyzer) *Service {
+	analyzer = ai.NewGuardedAnalyzer(analyzer, ai.DefaultInputPolicy())
 	return &Service{store: store, analyzer: analyzer}
 }
 
@@ -108,11 +109,15 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 	}
 	if analyzerErr != nil {
 		result.Status = "partial"
+		failure := assessment.Failure
+		if failure == nil {
+			failure = &domain.Failure{Code: "AI_ANALYSIS_FAILED", Message: "The AI assessment could not be completed."}
+		}
 		result.AIAssessment = domain.AIAssessment{
 			Status:             "failed",
 			SupportingSignals:  []string{},
 			EvidenceReferences: []string{},
-			Failure:            &domain.Failure{Code: "AI_ANALYSIS_FAILED", Message: analyzerErr.Error()},
+			Failure:            failure,
 		}
 		result.Failure = result.AIAssessment.Failure
 	}

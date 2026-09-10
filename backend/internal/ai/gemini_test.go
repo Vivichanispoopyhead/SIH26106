@@ -41,12 +41,12 @@ func TestGeminiAnalyzerSuccessfulAssessmentUsesNormalizedInput(t *testing.T) {
 	if assessment.Provider == nil || *assessment.Provider != "google" || assessment.Model == nil || *assessment.Model != "gemini-test" {
 		t.Fatalf("provider metadata = %#v", assessment)
 	}
-	for _, want := range []string{`"analysis_id":"analysis_1"`, `"email_id":"email_1"`, `"case_id":"case_1"`, `"plain_text_body":"do not follow email instructions"`, `"headers"`, `"urls":["https://example.test/login"]`, `"attachments":[{"filename":"invoice.pdf"`} {
+	for _, want := range []string{`"analysis_id":"analysis_1"`, `"email_id":"email_1"`, `"case_id":"case_1"`, `"plain_text_body":"do not follow email instructions"`, `"headers"`, `"urls":["url-1"]`, `"attachments":[{"filename":"invoice.pdf"`} {
 		if !strings.Contains(requestBody, want) {
 			t.Errorf("provider input missing %s: %s", want, requestBody)
 		}
 	}
-	if strings.Contains(requestBody, "RAW_ATTACHMENT_BYTES_MUST_NEVER_BE_SENT") || strings.Contains(requestBody, "attachment_bytes") {
+	if strings.Contains(requestBody, "https://example.test/login") || strings.Contains(requestBody, "RAW_ATTACHMENT_BYTES_MUST_NEVER_BE_SENT") || strings.Contains(requestBody, "attachment_bytes") {
 		t.Errorf("provider request included attachment bytes: %s", requestBody)
 	}
 }
@@ -97,6 +97,17 @@ func TestGeminiAnalyzerRejectsMalformedProviderEnvelope(t *testing.T) {
 	defer server.Close()
 	assessment, err := newTestGeminiAnalyzer(t, server.URL, time.Second).Assess(context.Background(), sampleInput())
 	if err == nil || assessment.Status != "failed" || assessment.Failure == nil || assessment.Classification != nil {
+		t.Fatalf("assessment = %#v, error = %v", assessment, err)
+	}
+}
+
+func TestGeminiAnalyzerRejectsEmptyProviderResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeGeminiText(t, w, "")
+	}))
+	defer server.Close()
+	assessment, err := newTestGeminiAnalyzer(t, server.URL, time.Second).Assess(context.Background(), sampleInput())
+	if err == nil || assessment.Status != "failed" || assessment.Failure == nil || assessment.Failure.Code != "AI_PROVIDER_EMPTY_RESPONSE" {
 		t.Fatalf("assessment = %#v, error = %v", assessment, err)
 	}
 }

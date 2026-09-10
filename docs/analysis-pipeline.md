@@ -198,6 +198,26 @@ authentication failure alone are not proof of maliciousness. Insufficient or
 contradictory evidence should produce `unknown` or a conservative `partial`
 assessment.
 
+Before any analyzer is called, the service passes input through a typed safety
+boundary. Plain text, headers, indicators, and attachment metadata have
+independent bounds and the serialized input has a hard total limit of 24,000
+characters. The defaults are 12,000 body characters, 100 headers, 50 values
+per indicator type, and 50 attachment metadata records. Attachment bytes are not part of the analyzer input. URL values are replaced by stable
+evidence slots, and URLs are never fetched or sent to the provider. Obvious
+credentials and tokens are redacted from body and header text without losing
+header order or evidence location. Prompt-injection-like content is treated as
+untrusted data by the provider instruction and is never executed.
+
+Provider responses are schema-validated: status and classification use the
+documented vocabulary, completed responses require classification and
+confidence in the range 0..1, signal counts and lengths are bounded, and every
+evidence reference must identify input supplied to the analyzer. Unknown
+assessment fields are rejected. Empty, malformed, contradictory, or invalid
+responses produce a structured AI failure. Provider telemetry records only
+provider/model, prompt version, duration, status, and stable failure code.
+unavailable, failed, or low-confidence AI output never becomes a benign result;
+deterministic observable evidence remains authoritative for risk scoring.
+
 Possible signals:
 
 Urgency

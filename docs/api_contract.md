@@ -389,6 +389,22 @@ Each contributing signal contains `code`, `description`, `points`,
 by the AI confidence and never erase stronger observed evidence. A failed AI
 provider still produces a deterministic risk result from available evidence.
 
+AI provider input is normalized at the backend boundary. Plain text, headers,
+indicators, and attachment metadata have independent limits and the
+serialized input has a hard total limit of 24,000 characters. The default
+limits are 12,000 body characters, 100 headers with 512 characters per value,
+50 values per indicator type with 256 characters per value, and 50 attachment
+metadata records with 256 characters per field. Attachment bytes are never sent.
+Literal URL values are replaced with stable evidence slots such as `url-1`;
+the backend never fetches URLs or resolves domains. Obvious passwords, bearer
+tokens, API keys, and private keys are redacted while header order and evidence
+locations remain available. Provider responses accept only the documented
+classification vocabulary, bounded signals, and evidence references present
+in the normalized input. Invalid, empty, or contradictory responses become
+structured AI failures and cannot become a benign assessment. Provider
+telemetry records provider, model, prompt version, duration, status, and a
+stable failure code without storing prompts, bodies, responses, or credentials.
+
 Authentication statuses are `pass`, `fail`, `neutral`, `none`, or `unknown`.
 Authentication evidence references identify the source header order and name.
 No DNS or external lookup is performed by this endpoint. Each received relay
