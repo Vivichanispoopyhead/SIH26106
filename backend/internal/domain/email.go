@@ -34,12 +34,14 @@ type Analysis struct {
 // AnalysisResult is the stable API representation of a completed or partial
 // analysis. It separates the pipeline status from any AI assessment.
 type AnalysisResult struct {
-	AnalysisID   string       `json:"analysis_id"`
-	EmailID      string       `json:"email_id"`
-	CaseID       string       `json:"case_id"`
-	Status       string       `json:"status"`
-	AIAssessment AIAssessment `json:"ai_assessment"`
-	Failure      *Failure     `json:"failure"`
+	AnalysisID     string                `json:"analysis_id"`
+	EmailID        string                `json:"email_id"`
+	CaseID         string                `json:"case_id"`
+	Status         string                `json:"status"`
+	AIAssessment   AIAssessment          `json:"ai_assessment"`
+	Authentication AuthenticationResults `json:"authentication"`
+	ReceivedChain  []ReceivedRelay       `json:"received_chain"`
+	Failure        *Failure              `json:"failure"`
 }
 
 type AIAssessment struct {
@@ -56,6 +58,33 @@ type AIAssessment struct {
 type Failure struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+type AuthenticationResults struct {
+	SPF   AuthenticationCheck `json:"spf"`
+	DKIM  AuthenticationCheck `json:"dkim"`
+	DMARC AuthenticationCheck `json:"dmarc"`
+}
+
+type AuthenticationCheck struct {
+	Status             string              `json:"status"`
+	EvidenceReferences []EvidenceReference `json:"evidence_references"`
+	Explanation        string              `json:"explanation"`
+}
+
+type EvidenceReference struct {
+	HeaderOrder int    `json:"header_order"`
+	HeaderName  string `json:"header_name"`
+}
+
+type ReceivedRelay struct {
+	Sequence          int     `json:"sequence"`
+	Hostname          *string `json:"hostname"`
+	IPAddress         *string `json:"ip_address"`
+	Timestamp         *string `json:"timestamp"`
+	SourceHeaderOrder int     `json:"source_header_order"`
+	Confidence        string  `json:"confidence"`
+	Provenance        string  `json:"provenance"`
 }
 
 type ParsedEmail struct {

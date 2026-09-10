@@ -180,7 +180,22 @@ func TestAnalysisParsesEmailAndReturnsContractShape(t *testing.T) {
 		t.Fatalf("analysis = %d: %s", analysisResponse.Code, analysisResponse.Body.String())
 	}
 	var result struct {
-		Status       string `json:"status"`
+		Status         string `json:"status"`
+		Authentication struct {
+			SPF struct {
+				Status string `json:"status"`
+			} `json:"spf"`
+			DKIM struct {
+				Status string `json:"status"`
+			} `json:"dkim"`
+			DMARC struct {
+				Status string `json:"status"`
+			} `json:"dmarc"`
+		} `json:"authentication"`
+		ReceivedChain []struct {
+			Sequence          int `json:"sequence"`
+			SourceHeaderOrder int `json:"source_header_order"`
+		} `json:"received_chain"`
 		AIAssessment struct {
 			Status         string   `json:"status"`
 			Classification *string  `json:"classification"`
@@ -199,6 +214,9 @@ func TestAnalysisParsesEmailAndReturnsContractShape(t *testing.T) {
 		result.AIAssessment.Signals == nil || result.AIAssessment.Failure == nil ||
 		result.AIAssessment.Failure.Code != "AI_NOT_CONFIGURED" {
 		t.Fatalf("unexpected analysis result: %#v", result)
+	}
+	if result.Authentication.SPF.Status != "none" || result.Authentication.DKIM.Status != "none" || result.Authentication.DMARC.Status != "none" || len(result.ReceivedChain) != 2 {
+		t.Fatalf("deterministic header analysis = %#v", result)
 	}
 }
 

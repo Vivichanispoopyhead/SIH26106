@@ -298,6 +298,10 @@ func cloneAnalysisResult(value *domain.AnalysisResult) *domain.AnalysisResult {
 	copy := *value
 	copy.AIAssessment.SupportingSignals = append([]string{}, value.AIAssessment.SupportingSignals...)
 	copy.AIAssessment.EvidenceReferences = append([]string{}, value.AIAssessment.EvidenceReferences...)
+	copy.ReceivedChain = append([]domain.ReceivedRelay{}, value.ReceivedChain...)
+	copy.Authentication.SPF.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.SPF.EvidenceReferences...)
+	copy.Authentication.DKIM.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DKIM.EvidenceReferences...)
+	copy.Authentication.DMARC.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DMARC.EvidenceReferences...)
 	return &copy
 }
 func failureMessage(failure *domain.Failure) string {
@@ -310,8 +314,14 @@ func pendingResult(analysisID, emailID, caseID, status, failure string) *domain.
 	result := &domain.AnalysisResult{
 		AnalysisID: analysisID, EmailID: emailID, CaseID: caseID, Status: status,
 		AIAssessment: domain.AIAssessment{
-			Status: "not_available", SupportingSignals: []string{}, EvidenceReferences: []string{},
+			Status: "not_available", SupportingSignals: []string{}, EvidenceReferences: []string{}, Failure: &domain.Failure{Code: "AI_NOT_CONFIGURED", Message: "No AI analyzer is configured."},
 		},
+		Authentication: domain.AuthenticationResults{
+			SPF:   domain.AuthenticationCheck{Status: "none", EvidenceReferences: []domain.EvidenceReference{}, Explanation: "Authentication has not been evaluated."},
+			DKIM:  domain.AuthenticationCheck{Status: "none", EvidenceReferences: []domain.EvidenceReference{}, Explanation: "Authentication has not been evaluated."},
+			DMARC: domain.AuthenticationCheck{Status: "none", EvidenceReferences: []domain.EvidenceReference{}, Explanation: "Authentication has not been evaluated."},
+		},
+		ReceivedChain: []domain.ReceivedRelay{},
 	}
 	if failure != "" {
 		result.Failure = &domain.Failure{Code: "ANALYSIS_FAILED", Message: failure}

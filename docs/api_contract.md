@@ -333,6 +333,34 @@ Example:
       "message": "No AI analyzer is configured."
     }
   },
+  "authentication": {
+    "spf": {
+      "status": "none",
+      "evidence_references": [],
+      "explanation": "No Authentication-Results header reported SPF."
+    },
+    "dkim": {
+      "status": "none",
+      "evidence_references": [],
+      "explanation": "No Authentication-Results header reported DKIM."
+    },
+    "dmarc": {
+      "status": "none",
+      "evidence_references": [],
+      "explanation": "No Authentication-Results header reported DMARC."
+    }
+  },
+  "received_chain": [
+    {
+      "sequence": 1,
+      "hostname": "mx.example.org",
+      "ip_address": "203.0.113.10",
+      "timestamp": "2026-09-08T10:20:30Z",
+      "source_header_order": 4,
+      "confidence": "medium",
+      "provenance": "inferred"
+    }
+  ],
   "failure": null
 }
 ```
@@ -342,6 +370,12 @@ Example:
 fabricated. AI confidence describes confidence in the assessment, not identity
 confidence or physical attribution. The default backend response is
 `not_available` until an explicit AI adapter is configured.
+
+Authentication statuses are `pass`, `fail`, `neutral`, `none`, or `unknown`.
+Authentication evidence references identify the source header order and name.
+No DNS or external lookup is performed by this endpoint. Each received relay
+preserves its source header order; sequence and relay confidence are derived
+from the observed header order and available header values.
 
 12. Upload-Only Email Response
 

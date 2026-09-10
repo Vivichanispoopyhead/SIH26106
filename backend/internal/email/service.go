@@ -8,6 +8,7 @@ import (
 
 	"sih26106/backend/internal/ai"
 	"sih26106/backend/internal/domain"
+	"sih26106/backend/internal/forensics"
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
 )
@@ -94,12 +95,15 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		Indicators:    parsed.Indicators,
 		Attachments:   parsed.Attachments,
 	})
+	auth, received := forensics.AnalyzeHeaders(parsed.Headers)
 	result := &domain.AnalysisResult{
-		AnalysisID:   analysis.ID,
-		EmailID:      email.ID,
-		CaseID:       email.CaseID,
-		Status:       "completed",
-		AIAssessment: assessment,
+		AnalysisID:     analysis.ID,
+		EmailID:        email.ID,
+		CaseID:         email.CaseID,
+		Status:         "completed",
+		AIAssessment:   assessment,
+		Authentication: auth,
+		ReceivedChain:  received,
 	}
 	if analyzerErr != nil {
 		result.Status = "partial"
