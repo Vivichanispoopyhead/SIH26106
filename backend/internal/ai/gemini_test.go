@@ -108,6 +108,62 @@ func TestNewGeminiAnalyzerFromEnvUsesUnavailableWhenAPIKeyMissing(t *testing.T) 
 	}
 }
 
+func TestNewGeminiAnalyzerFromEnvUsesConfiguredGemini(t *testing.T) {
+	t.Setenv("GEMINI_API_KEY", "test-key")
+	t.Setenv("GEMINI_MODEL", "gemini-test")
+	t.Setenv("GEMINI_API_URL", "https://provider.example.test/v1beta")
+	t.Setenv("GEMINI_TIMEOUT", "2s")
+	t.Setenv("GEMINI_MAX_INPUT_CHARS", "1000")
+	analyzer, err := NewGeminiAnalyzerFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := analyzer.(*geminiAnalyzer); !ok {
+		t.Fatalf("analyzer type = %T, want *geminiAnalyzer", analyzer)
+	}
+}
+
+func TestNewGeminiAnalyzerFromEnvRejectsInvalidConfiguration(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*testing.T)
+	}{
+		{
+			name: "invalid timeout",
+			setup: func(t *testing.T) {
+				t.Setenv("GEMINI_API_KEY", "test-key")
+				t.Setenv("GEMINI_TIMEOUT", "not-a-duration")
+			},
+		},
+		{
+			name: "invalid model",
+			setup: func(t *testing.T) {
+				t.Setenv("GEMINI_API_KEY", "test-key")
+				t.Setenv("GEMINI_MODEL", "")
+			},
+		},
+		{
+			name: "invalid endpoint",
+			setup: func(t *testing.T) {
+				t.Setenv("GEMINI_API_KEY", "test-key")
+				t.Setenv("GEMINI_API_URL", "not-an-absolute-url")
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("GEMINI_MODEL", "gemini-test")
+			t.Setenv("GEMINI_API_URL", "https://provider.example.test/v1beta")
+			t.Setenv("GEMINI_TIMEOUT", "2s")
+			t.Setenv("GEMINI_MAX_INPUT_CHARS", "1000")
+			test.setup(t)
+			if analyzer, err := NewGeminiAnalyzerFromEnv(); err == nil || analyzer != nil {
+				t.Fatalf("analyzer = %T, error = %v; want configuration error", analyzer, err)
+			}
+		})
+	}
+}
+
 func newTestGeminiAnalyzer(t *testing.T, endpoint string, timeout time.Duration) Analyzer {
 	t.Helper()
 	analyzer, err := NewGeminiAnalyzer(GeminiConfig{APIKey: "test-key", Model: "gemini-test", Endpoint: endpoint, Timeout: timeout, MaxInputChars: 10_000})

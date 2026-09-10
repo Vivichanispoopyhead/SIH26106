@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"sih26106/backend/internal/ai"
 	"sih26106/backend/internal/config"
 	"sih26106/backend/internal/email"
 	"sih26106/backend/internal/httpapi"
@@ -19,6 +20,11 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := newLogger(cfg.Environment)
+	configuredAnalyzer, err := ai.NewGeminiAnalyzerFromEnv()
+	if err != nil {
+		logger.Error("Gemini configuration is invalid", "error", err)
+		os.Exit(1)
+	}
 	store, err := persistence.NewPostgresStore(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("postgres initialization failed", "error", err)
@@ -28,7 +34,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins, email.NewService(store)),
+		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins, email.NewServiceWithAnalyzer(store, configuredAnalyzer)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -48,10 +48,18 @@ func GeminiConfigFromEnv() (GeminiConfig, error) {
 	if err != nil {
 		return GeminiConfig{}, err
 	}
+	model := defaultGeminiModel
+	if value, ok := os.LookupEnv("GEMINI_MODEL"); ok {
+		model = strings.TrimSpace(value)
+	}
+	endpoint := defaultGeminiEndpoint
+	if value, ok := os.LookupEnv("GEMINI_API_URL"); ok {
+		endpoint = strings.TrimSpace(value)
+	}
 	return GeminiConfig{
 		APIKey:        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
-		Model:         valueOrDefault("GEMINI_MODEL", defaultGeminiModel),
-		Endpoint:      valueOrDefault("GEMINI_API_URL", defaultGeminiEndpoint),
+		Model:         model,
+		Endpoint:      endpoint,
 		Timeout:       timeout,
 		MaxInputChars: maxInput,
 	}, nil
