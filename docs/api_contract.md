@@ -1036,7 +1036,7 @@ Do not combine them into one percentage.
 
 This distinction must remain consistent throughout the frontend and backend.
 
-29. Future Investigation Endpoints
+29. Remaining Future Investigation Endpoints
 
 The following endpoints belong to later stages of the MVP:
 
@@ -1044,20 +1044,15 @@ Get Case
 GET /api/cases/{case_id}
 Get Case Analysis
 GET /api/cases/{case_id}/analysis
-Get Entity Graph
-GET /api/cases/{case_id}/graph
-Get Timeline
-GET /api/cases/{case_id}/timeline
 Get Map Data
 GET /api/cases/{case_id}/map
 Get Evidence
 GET /api/cases/{case_id}/evidence
-Generate Report
-POST /api/cases/{case_id}/report
-Download Report
-GET /api/cases/{case_id}/report
 
-These endpoints must be added incrementally as their corresponding analysis stages are implemented.
+Entity graph, forensic timeline, and structured report endpoints are already
+implemented and documented in sections 11.3 through 11.5. Remaining future
+endpoints must be added incrementally as their corresponding analysis stages
+are implemented.
 
 They are part of the long-term API design but are not requirements for the initial upload/parse slice.
 

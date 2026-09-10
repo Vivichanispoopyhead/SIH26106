@@ -89,6 +89,9 @@ func TestHTTPEnricherProviderFailuresAreStructured(t *testing.T) {
 			_, _ = w.Write([]byte(`{"country":"US","unexpected":true}`))
 		}), "IP_ENRICHMENT_MALFORMED_RESPONSE"},
 		{"invalid value", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"confidence":2}`)) }), "IP_ENRICHMENT_INVALID_RESPONSE"},
+		{"invalid coordinates", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"latitude":91,"longitude":181}`))
+		}), "IP_ENRICHMENT_INVALID_RESPONSE"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

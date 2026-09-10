@@ -36,6 +36,26 @@ func TestNormalizeInputRedactsSecretsAndURLs(t *testing.T) {
 	}
 }
 
+type duplicateAssessmentAnalyzer struct{}
+
+func (duplicateAssessmentAnalyzer) Assess(context.Context, Input) (domain.AIAssessment, error) {
+	return domain.AIAssessment{Status: "completed", Classification: stringPointer("phishing"), Confidence: floatPointer(0.8), SupportingSignals: []string{"url", "url"}, EvidenceReferences: []string{"url-1", "url-1"}}, nil
+}
+
+func TestGuardedAnalyzerDeduplicatesAssessmentReferences(t *testing.T) {
+	assessment, err := NewGuardedAnalyzer(duplicateAssessmentAnalyzer{}, DefaultInputPolicy()).Assess(context.Background(), Input{Indicators: domain.Indicators{URLs: []string{"https://example.test"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(assessment.SupportingSignals) != 1 || len(assessment.EvidenceReferences) != 1 || assessment.EvidenceReferences[0] != "url-1" {
+		t.Fatalf("assessment = %#v", assessment)
+	}
+}
+
+func stringPointer(value string) *string { return &value }
+
+func floatPointer(value float64) *float64 { return &value }
+
 func TestGuardedAnalyzerBoundsEveryComponentAndTotal(t *testing.T) {
 	policy := InputPolicy{MaxTotalChars: 600, MaxBodyChars: 100, MaxHeaders: 2, MaxHeaderValueChars: 20, MaxIndicatorsPerType: 2, MaxIndicatorChars: 12, MaxAttachments: 1, MaxAttachmentFieldChars: 12}
 	capture := &captureInputAnalyzer{}

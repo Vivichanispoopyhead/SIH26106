@@ -69,6 +69,8 @@ func NewGuardedAnalyzer(delegate Analyzer, policy InputPolicy) Analyzer {
 func (a *GuardedAnalyzer) Assess(ctx context.Context, input Input) (assessment domain.AIAssessment, err error) {
 	start := time.Now()
 	assessment, err = a.delegate.Assess(ctx, NormalizeInput(input, a.policy))
+	assessment.SupportingSignals = deduplicateStrings(assessment.SupportingSignals)
+	assessment.EvidenceReferences = deduplicateStrings(assessment.EvidenceReferences)
 	provider, model := "", ""
 	if assessment.Provider != nil {
 		provider = *assessment.Provider
@@ -93,6 +95,19 @@ func (a *GuardedAnalyzer) Assess(ctx context.Context, input Input) (assessment d
 		slog.String("failure_code", failureCode),
 	)
 	return assessment, err
+}
+
+func deduplicateStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func (p InputPolicy) withDefaults() InputPolicy {

@@ -124,6 +124,21 @@ func TestGeminiAnalyzerHonorsTimeout(t *testing.T) {
 	}
 }
 
+func TestGeminiAnalyzerProviderHTTPStatusesAreStructured(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "provider failure", status)
+			}))
+			defer server.Close()
+			assessment, err := newTestGeminiAnalyzer(t, server.URL, time.Second).Assess(context.Background(), sampleInput())
+			if err == nil || assessment.Status != "failed" || assessment.Classification != nil || assessment.Confidence != nil || assessment.Failure == nil || assessment.Failure.Code != "AI_PROVIDER_HTTP_ERROR" {
+				t.Fatalf("status=%d assessment=%#v err=%v", status, assessment, err)
+			}
+		})
+	}
+}
+
 func TestNewGeminiAnalyzerFromEnvUsesUnavailableWhenAPIKeyMissing(t *testing.T) {
 	t.Setenv("GEMINI_API_KEY", "")
 	t.Setenv("GEMINI_TIMEOUT", "")
