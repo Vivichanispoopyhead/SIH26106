@@ -1,0 +1,156 @@
+SIH26106 - Fix Gemini Model 404 and Test the AIML Pipeline
+
+The backend setup is mostly working:
+
+- Backend started successfully.
+- PostgreSQL and Redis are running.
+- Gemini was called.
+- The response is no longer AI_NOT_CONFIGURED.
+- The current failure is:
+
+Gemini response status 404
+
+This usually means that the configured Gemini model is unavailable or the
+model name is no longer valid. It does not usually mean that .env loading
+failed.
+
+IMPORTANT:
+
+The API key was exposed earlier. Revoke that key and create a replacement
+before continuing. Do not paste the replacement key into chat, Git, source
+files, screenshots, or commands that will be saved in shell history.
+
+1. Find available Gemini models
+
+Run from the repository root:
+
+cd /mnt/d/SIH/SIH26106
+
+Load the local .env file:
+
+set -a
+source .env
+set +a
+
+Use the loaded key to list models that support generateContent:
+
+curl -sG \
+  'https://generativelanguage.googleapis.com/v1beta/models' \
+  --data-urlencode "key=$GEMINI_API_KEY" \
+  | jq -r '.models[] | select(.supportedGenerationMethods[]? == "generateContent") | .name'
+
+Choose one of the returned model names. The output may contain a value such
+as:
+
+gemini-2.5-flash
+
+Use the model name after models/. Do not add models/ unless the provider
+configuration specifically requires it.
+
+2. Update .env
+
+Open the local environment file:
+
+nvim /mnt/d/SIH/SIH26106/.env
+
+Set the model to one returned by the model-list command:
+
+GEMINI_API_KEY=your-new-key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TIMEOUT=30s
+
+Do not commit .env. It must remain local and must not contain a placeholder
+in the committed .env.example file.
+
+Save in Neovim:
+
+Esc
+:wq
+Enter
+
+3. Restart the backend
+
+The backend reads environment variables only when it starts. Stop the current
+backend with:
+
+Ctrl+C
+
+Reload .env and restart:
+
+cd /mnt/d/SIH/SIH26106
+
+set -a
+source .env
+set +a
+
+docker compose up -d postgres redis
+
+cd backend
+DATABASE_URL='postgres://sih26106:change-me-for-local-development@localhost:5432/sih26106?sslmode=disable' \
+go run ./cmd/api
+
+4. Test the full pipeline
+
+Open another terminal:
+
+cd /mnt/d/SIH/SIH26106
+
+Upload the fixture:
+
+UPLOAD=$(curl -s -X POST http://localhost:8080/api/emails \
+  -F 'file=@backend/test-fixtures/basic-phishing.eml')
+
+Print the upload response:
+
+echo "$UPLOAD" | jq
+
+Extract the email ID:
+
+EMAIL_ID=$(echo "$UPLOAD" | jq -r '.email_id')
+
+Start analysis:
+
+curl -s -X POST \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+Retrieve the canonical analysis result:
+
+curl -s \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+5. Expected successful result
+
+The response should contain:
+
+{
+  "status": "completed",
+  "ai_assessment": {
+    "status": "completed",
+    "provider": "google",
+    "model": "your-selected-model",
+    "classification": "...",
+    "confidence": 0.0
+  }
+}
+
+6. If the model-list command fails
+
+The key may be:
+
+- invalid
+- revoked
+- restricted
+- associated with the wrong Google project
+- missing access to the Gemini API
+
+Since the previous key was exposed, revoke it and use a newly generated key
+before continuing.
+
+Never commit the real key or place it in:
+
+- .env.example
+- Git history
+- frontend files
+- backend source files
+- screenshots
+- chat messages
