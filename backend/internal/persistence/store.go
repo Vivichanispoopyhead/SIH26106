@@ -29,6 +29,7 @@ type Store interface {
 	GetEmail(context.Context, string) (*domain.Email, error)
 	GetCaseEmails(context.Context, string) ([]*domain.Email, error)
 	CreateAnalysis(context.Context, string) (*domain.Analysis, error)
+	GetLatestAnalysis(context.Context, string) (*domain.Analysis, error)
 	UpdateAnalysis(context.Context, string, string, string) error
 	SaveAnalysisResult(context.Context, string, *domain.AnalysisResult) error
 	GetAnalysisResult(context.Context, string) (*domain.AnalysisResult, error)
@@ -156,6 +157,17 @@ func (s *PostgresStore) CreateAnalysis(ctx context.Context, emailID string) (*do
 	_, err = s.pool.Exec(ctx, `INSERT INTO analyses (id,email_id,case_id,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$5)`, analysis.ID, analysis.EmailID, analysis.CaseID, analysis.Status, now)
 	return analysis, err
 }
+func (s *PostgresStore) GetLatestAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {
+	row := s.pool.QueryRow(ctx, `SELECT id,email_id,case_id,status,COALESCE(failure,''),created_at,updated_at FROM analyses WHERE email_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`, emailID)
+	var analysis domain.Analysis
+	if err := row.Scan(&analysis.ID, &analysis.EmailID, &analysis.CaseID, &analysis.Status, &analysis.Failure, &analysis.CreatedAt, &analysis.UpdatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAnalysisNotFound
+		}
+		return nil, err
+	}
+	return &analysis, nil
+}
 func (s *PostgresStore) UpdateAnalysis(ctx context.Context, id, status, failure string) error {
 	_, err := s.pool.Exec(ctx, `UPDATE analyses SET status=$2,failure=$3,updated_at=$4 WHERE id=$1`, id, status, failure, time.Now().UTC())
 	return err
@@ -272,6 +284,21 @@ func (s *MemoryStore) CreateAnalysis(_ context.Context, emailID string) (*domain
 	analysis := &domain.Analysis{ID: newID("analysis"), EmailID: emailID, CaseID: email.CaseID, Status: "started", CreatedAt: now, UpdatedAt: now}
 	s.analyses[analysis.ID] = analysis
 	return analysis, nil
+}
+func (s *MemoryStore) GetLatestAnalysis(_ context.Context, emailID string) (*domain.Analysis, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var latest *domain.Analysis
+	for _, analysis := range s.analyses {
+		if analysis.EmailID == emailID && (latest == nil || analysis.CreatedAt.After(latest.CreatedAt) || (analysis.CreatedAt.Equal(latest.CreatedAt) && analysis.ID > latest.ID)) {
+			copy := *analysis
+			latest = &copy
+		}
+	}
+	if latest == nil {
+		return nil, ErrAnalysisNotFound
+	}
+	return latest, nil
 }
 func (s *MemoryStore) UpdateAnalysis(_ context.Context, id, status, failure string) error {
 	s.mu.Lock()

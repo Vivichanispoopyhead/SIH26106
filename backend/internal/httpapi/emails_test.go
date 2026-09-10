@@ -314,6 +314,64 @@ func TestGraphEndpointAndMissingCase(t *testing.T) {
 	assertError(t, missing, http.StatusNotFound, "CASE_NOT_FOUND")
 }
 
+func TestTimelineEndpointLifecycleAndOrdering(t *testing.T) {
+	router, _ := newEmailRouter()
+	upload := uploadRequest(t, router, "timeline.eml", []byte("From: sender@example.test\r\nReceived: from edge.example (203.0.113.7) by mx.example; Tue, 09 Sep 2026 10:00:00 +0000\r\nReceived: from origin.example (203.0.113.8) by edge.example; Tue, 09 Sep 2026 09:00:00 +0000\r\n\r\nbody"))
+	var uploaded struct {
+		CaseID  string `json:"case_id"`
+		EmailID string `json:"email_id"`
+	}
+	if err := json.NewDecoder(upload.Body).Decode(&uploaded); err != nil {
+		t.Fatal(err)
+	}
+	before := httptest.NewRecorder()
+	router.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/timeline", nil))
+	assertError(t, before, http.StatusNotFound, "TIMELINE_NOT_AVAILABLE")
+	start := httptest.NewRecorder()
+	router.ServeHTTP(start, httptest.NewRequest(http.MethodPost, "/api/emails/"+uploaded.EmailID+"/analysis", nil))
+	if start.Code != http.StatusAccepted {
+		t.Fatalf("start = %d: %s", start.Code, start.Body.String())
+	}
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/timeline", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("timeline = %d: %s", response.Code, response.Body.String())
+	}
+	var body struct {
+		CaseID string `json:"case_id"`
+		Events []struct {
+			ID                string   `json:"id"`
+			Type              string   `json:"type"`
+			Sequence          int      `json:"sequence"`
+			Timestamp         *string  `json:"timestamp"`
+			SourceHeaderOrder *int     `json:"source_header_order"`
+			EvidenceIDs       []string `json:"evidence_ids"`
+			RelatedNodeID     *string  `json:"related_node_id"`
+		} `json:"events"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.CaseID != uploaded.CaseID || len(body.Events) < 4 {
+		t.Fatalf("timeline body = %#v", body)
+	}
+	var relayCount int
+	for _, event := range body.Events {
+		if strings.HasPrefix(event.ID, "timeline:"+uploaded.EmailID+":relay:") {
+			relayCount++
+			if event.Type != "relay_inferred" || event.SourceHeaderOrder == nil || event.RelatedNodeID == nil || len(event.EvidenceIDs) == 0 {
+				t.Fatalf("relay event = %#v", event)
+			}
+		}
+	}
+	if relayCount != 2 {
+		t.Fatalf("relay count = %d, events = %#v", relayCount, body.Events)
+	}
+	missing := httptest.NewRecorder()
+	router.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/cases/missing/timeline", nil))
+	assertError(t, missing, http.StatusNotFound, "CASE_NOT_FOUND")
+}
+
 func TestMissingOptionalHeadersAndParseFailurePreserveArtifact(t *testing.T) {
 	router, store := newEmailRouter()
 	validID := uploadID(t, router, []byte("From: sender@example.com\r\n\r\nplain body"))

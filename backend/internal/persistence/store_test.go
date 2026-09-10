@@ -53,3 +53,25 @@ func TestMemoryStoreCaseEmailLookup(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestMemoryStoreLatestAnalysisMetadata(t *testing.T) {
+	store := NewMemoryStore()
+	email, err := store.CreateUpload(context.Background(), "message.eml", []byte("From: a@example.test\r\n\r\nbody"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	analysis, err := store.CreateAnalysis(context.Background(), email.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpdateAnalysis(context.Background(), analysis.ID, "completed", ""); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.GetLatestAnalysis(context.Background(), email.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.ID != analysis.ID || loaded.Status != "completed" || loaded.UpdatedAt.IsZero() {
+		t.Fatalf("latest analysis = %#v", loaded)
+	}
+}

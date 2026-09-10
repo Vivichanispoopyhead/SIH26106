@@ -31,6 +31,8 @@ EVIDENCE
   ↓
 GRAPH
   ↓
+TIMELINE
+  ↓
 MAP
   ↓
 REPORT
@@ -345,7 +347,23 @@ Geolocation
 
 Relationships should have provenance.
 
-12. Stage 11 — Map
+## 12. Stage 11 — Timeline
+
+Derive `GET /api/cases/{case_id}/timeline` from persisted upload, parsed,
+authentication, Received-chain, indicator, enrichment, analysis, and evidence
+data. Relay events preserve source header order, sequence, safely parsed
+timestamps, confidence, provenance, evidence IDs, and the corresponding graph
+relay node ID. Upload and analysis completion timestamps come from server-side
+persisted records; no current time or sender location is invented. Timeline
+ordering is timestamp ascending, then sequence, then stable event ID, with
+untimestamped events after timestamped events. Missing timestamps remain null.
+
+Observed header facts remain `OBSERVED`; reconstructed relay ordering is
+`INFERRED`; provider metadata is `ENRICHED`; and any future model-derived
+annotation would be `AI-ASSESSED`. The timeline is derived on demand and does
+not become a second event database.
+
+13. Stage 12 — Map
 
 Display infrastructure locations derived from geolocation data.
 
@@ -361,7 +379,7 @@ Source: MaxMind
 
 Do not present geolocation as exact physical location or confirmed actor identity.
 
-13. Stage 12 — Report
+14. Stage 13 — Report
 
 The final report should combine:
 
@@ -377,7 +395,7 @@ Evidence
 Graph relationships
 Geographic findings
 Limitations
-14. Failure Handling
+15. Failure Handling
 
 A failed analyzer must not necessarily fail the entire pipeline.
 
@@ -392,7 +410,7 @@ The analysis may still complete with partial results.
 
 The final result should clearly indicate missing or unavailable analysis.
 
-15. Confidence
+16. Confidence
 
 Confidence should be propagated and represented explicitly.
 
@@ -402,7 +420,7 @@ Confidence does not mean:
 
 It means confidence in the specific analytical conclusion.
 
-16. Forensic Principle
+17. Forensic Principle
 
 The pipeline must preserve the distinction between:
 

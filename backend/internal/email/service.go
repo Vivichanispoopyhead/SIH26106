@@ -15,17 +15,19 @@ import (
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
 	"sih26106/backend/internal/risk"
+	"sih26106/backend/internal/timeline"
 )
 
 const MaxUploadSize int64 = 50 << 20
 
 var (
-	ErrMissingFile       = errors.New("missing file")
-	ErrEmptyFile         = errors.New("empty file")
-	ErrUnsupportedType   = errors.New("unsupported file type")
-	ErrTooLarge          = errors.New("file too large")
-	ErrParseFailed       = errors.New("email parse failed")
-	ErrGraphNotAvailable = errors.New("graph not available")
+	ErrMissingFile          = errors.New("missing file")
+	ErrEmptyFile            = errors.New("empty file")
+	ErrUnsupportedType      = errors.New("unsupported file type")
+	ErrTooLarge             = errors.New("file too large")
+	ErrParseFailed          = errors.New("email parse failed")
+	ErrGraphNotAvailable    = errors.New("graph not available")
+	ErrTimelineNotAvailable = errors.New("timeline not available")
 )
 
 type Service struct {
@@ -107,6 +109,38 @@ func (s *Service) GetGraph(ctx context.Context, caseID string) (*domain.Graph, e
 		return nil, ErrGraphNotAvailable
 	}
 	return graph.Build(caseID, inputs), nil
+}
+
+func (s *Service) GetTimeline(ctx context.Context, caseID string) (*domain.Timeline, error) {
+	emails, err := s.store.GetCaseEmails(ctx, caseID)
+	if err != nil {
+		return nil, err
+	}
+	inputs := make([]timeline.EmailAnalysis, 0, len(emails))
+	for _, email := range emails {
+		if email.Parsed == nil {
+			continue
+		}
+		result, resultErr := s.store.GetAnalysisResult(ctx, email.ID)
+		if errors.Is(resultErr, persistence.ErrAnalysisNotFound) {
+			continue
+		}
+		if resultErr != nil {
+			return nil, resultErr
+		}
+		if result.Status != "completed" && result.Status != "partial" {
+			continue
+		}
+		analysis, analysisErr := s.store.GetLatestAnalysis(ctx, email.ID)
+		if analysisErr != nil && !errors.Is(analysisErr, persistence.ErrAnalysisNotFound) {
+			return nil, analysisErr
+		}
+		inputs = append(inputs, timeline.EmailAnalysis{Email: email, Parsed: email.Parsed, Result: result, Analysis: analysis})
+	}
+	if len(inputs) == 0 {
+		return nil, ErrTimelineNotAvailable
+	}
+	return timeline.Build(caseID, inputs), nil
 }
 
 func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {

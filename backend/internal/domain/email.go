@@ -162,6 +162,30 @@ type GraphEdge struct {
 	Confidence   *float64 `json:"confidence"`
 }
 
+// Timeline is a deterministic, evidence-backed chronological view of a case.
+type Timeline struct {
+	CaseID   string          `json:"case_id"`
+	EmailIDs []string        `json:"email_ids"`
+	Events   []TimelineEvent `json:"events"`
+}
+
+type TimelineEvent struct {
+	ID                string            `json:"id"`
+	Type              string            `json:"type"`
+	Sequence          int               `json:"sequence"`
+	Timestamp         *time.Time        `json:"timestamp"`
+	Title             string            `json:"title"`
+	Description       string            `json:"description"`
+	Hostname          *string           `json:"hostname"`
+	IPAddress         *string           `json:"ip_address"`
+	SourceHeaderOrder *int              `json:"source_header_order"`
+	Provenance        string            `json:"provenance"`
+	Confidence        string            `json:"confidence"`
+	EvidenceIDs       []string          `json:"evidence_ids"`
+	RelatedNodeID     *string           `json:"related_node_id"`
+	Metadata          map[string]string `json:"metadata"`
+}
+
 type ParsedEmail struct {
 	Message       MessageMetadata `json:"message"`
 	MIME          MIMEMetadata    `json:"mime"`

@@ -149,6 +149,20 @@ func (h emailHandler) getGraph(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h emailHandler) getTimeline(w http.ResponseWriter, r *http.Request) {
+	timeline, err := h.service.GetTimeline(r.Context(), chi.URLParam(r, "case_id"))
+	switch {
+	case errors.Is(err, persistence.ErrCaseNotFound):
+		writeError(w, http.StatusNotFound, "CASE_NOT_FOUND", "The requested case was not found.")
+	case errors.Is(err, email.ErrTimelineNotAvailable):
+		writeError(w, http.StatusNotFound, "TIMELINE_NOT_AVAILABLE", "No analyzed email timeline is available for this case.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The timeline could not be retrieved.")
+	default:
+		writeJSON(w, http.StatusOK, timeline)
+	}
+}
+
 func writeParsed(w http.ResponseWriter, emailID, caseID, filename string, parsed *domain.ParsedEmail) {
 	if parsed == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The parsed email is unavailable.")

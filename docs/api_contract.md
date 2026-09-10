@@ -88,10 +88,10 @@ POST /api/emails
 POST /api/emails/{email_id}/analysis
 GET  /api/emails/{email_id}
 GET  /api/cases/{case_id}/graph
+GET  /api/cases/{case_id}/timeline
 Future Investigation Endpoints
 GET  /api/cases/{case_id}
 GET  /api/cases/{case_id}/analysis
-GET  /api/cases/{case_id}/timeline
 GET  /api/cases/{case_id}/map
 GET  /api/cases/{case_id}/evidence
 POST /api/cases/{case_id}/report
@@ -533,6 +533,57 @@ derived from an IP and are not a person's physical location or identity.
 The endpoint returns `404 CASE_NOT_FOUND` when the case does not exist and
 `404 GRAPH_NOT_AVAILABLE` when the case exists but has no completed or partial
 analyzed email. The graph is derived on demand and is not stored separately.
+
+### 11.4 Endpoint: Get Case Timeline
+
+`GET /api/cases/{case_id}/timeline` derives a chronological, evidence-backed
+timeline from persisted email, parsed data, analysis, enrichment, and evidence
+records. Its response contains `case_id`, `email_ids`, and `events`:
+
+```json
+{
+  "case_id": "case_...",
+  "email_ids": ["email_..."],
+  "events": [
+    {
+      "id": "timeline:email_...:relay:1",
+      "type": "relay_inferred",
+      "sequence": 1,
+      "timestamp": "2026-09-10T13:45:00Z",
+      "title": "Observed relay",
+      "description": "A Received header identified a relay in the message path.",
+      "hostname": "mx.example.org",
+      "ip_address": "203.0.113.77",
+      "source_header_order": 8,
+      "provenance": "INFERRED",
+      "confidence": "medium",
+      "evidence_ids": ["evidence_..."],
+      "related_node_id": "relay:email_...:8",
+      "metadata": {"sequence_source": "received_header_order"}
+    }
+  ]
+}
+```
+
+Event types are `email_received`, `relay_observed`, `relay_inferred`,
+`authentication_observed`, `indicator_observed`, `enrichment_completed`, and
+`analysis_completed`. Relay events preserve source header order, sequence,
+hostname, IP, timestamp, confidence, provenance, evidence IDs, and the
+corresponding graph relay node ID. Events are generated only from persisted
+data and never contain raw email content, credentials, provider prompts, or
+attachment contents.
+
+Events with timestamps sort ascending. Timestamped events precede events with
+no timestamp; equal timestamps use sequence when present, then the stable event
+ID. The upload event uses the server-observed artifact creation time and is
+explicitly labeled as an upload timestamp, not proof of sender location or
+identity. Nullable timestamp, hostname, IP, header-order, and related-node
+fields remain null when the source does not provide them. The backend never
+invents timestamps.
+
+The endpoint returns `404 CASE_NOT_FOUND` for a missing case and
+`404 TIMELINE_NOT_AVAILABLE` when no completed or partial analyzed email is
+available. The timeline is derived on demand rather than stored separately.
 
 12. Upload-Only Email Response
 

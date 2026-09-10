@@ -169,6 +169,36 @@ GraphEdge
 
 Graph nodes and edges are derived from persisted analysis and evidence rather
 than maintained as a second graph database copy.
+
+Timeline
+
+Represents a chronological view derived from persisted case data.
+
+Timeline
+- case_id
+- email_ids
+- events
+
+TimelineEvent
+- id
+- type
+- sequence
+- timestamp
+- title
+- description
+- hostname
+- ip_address
+- source_header_order
+- provenance
+- confidence
+- evidence_ids
+- related_node_id
+- metadata
+
+Timeline timestamps and source fields are nullable. Received-chain sequence
+and source header order remain separate because chronology can be inferred from
+header order. Timeline events are derived on demand instead of persisted as a
+second event store.
 Analysis Result
 
 Represents output from an analyzer.
