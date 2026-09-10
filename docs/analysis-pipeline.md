@@ -96,6 +96,11 @@ unknown
 
 Authentication results are signals, not standalone proof of legitimacy or maliciousness.
 
+The deterministic authentication stage reads only Authentication-Results
+headers already present in the artifact. Missing values are represented as
+`none`, malformed or unrecognized values as `unknown`, and every reported
+value carries a source header order reference.
+
 5. Stage 4 — Received Chain
 
 Parse all relevant Received headers.
@@ -114,6 +119,11 @@ confidence
 The system should identify the earliest reliable infrastructure observed in the chain.
 
 Do not automatically assume the earliest visible IP is the true physical origin.
+
+Received relays preserve the source header order. Chronological sequence and
+confidence are inferred from the observed header order and safely parseable
+hostname, IP, and timestamp fields; malformed headers remain represented with
+low confidence rather than being discarded.
 
 6. Stage 5 — Indicator Extraction
 
@@ -161,6 +171,14 @@ The backend exposes a typed analyzer adapter boundary. Until an adapter is
 configured, the AI assessment is explicitly `not_available`; it must not
 contain a fabricated classification or confidence. Analyzer failures may be
 represented as a partial analysis result.
+
+The optional Gemini adapter reads `GEMINI_API_KEY`, `GEMINI_MODEL`,
+`GEMINI_API_URL`, `GEMINI_TIMEOUT`, and `GEMINI_MAX_INPUT_CHARS` from the
+server environment. An absent API key selects the explicit `not_available`
+assessment. Provider, timeout, and output-validation failures return failed
+adapter assessments; the existing pipeline records the overall result as
+`partial` after the parser has preserved the email. Tests use local HTTP
+servers and do not require provider credentials.
 
 Possible signals:
 
