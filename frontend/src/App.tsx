@@ -17,6 +17,7 @@ import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
 import { LoadingStage, WorkflowState } from './components/states/LoadingStage';
 import { ErrorBanner } from './components/states/ErrorBanner';
 import { ParsedEmailWorkspace } from './components/investigation/ParsedEmailWorkspace';
+import { MailSearch } from 'lucide-react';
 import './App.css';
 
 type BackendStatus = 'checking' | 'online' | 'error';
@@ -251,6 +252,7 @@ export const App: React.FC = () => {
         <NavigationSidebar
           activeStage={workflowState === 'idle' ? 'ingest' : 'investigation'}
           hasEmail={Boolean(emailId)}
+          onNewAnalysis={handleReset}
         />
 
         {/* Main Workspace */}
@@ -267,20 +269,25 @@ export const App: React.FC = () => {
 
         {workflowState === 'idle' && (
           <section className="ingestion-section" data-testid="ingestion-section">
+            <div className="hero-icon-badge">
+              <MailSearch size={30} strokeWidth={2} />
+            </div>
+
             <div className="ingestion-hero">
-              <span className="hero-eyebrow">Forensic Investigation Pipeline</span>
-              <h2 className="hero-heading">Stage 01: Raw EML Sample Ingestion</h2>
+              <h2 className="hero-heading">Submit an .eml sample to open an investigation</h2>
               <p className="hero-description">
                 Upload an RFC 5322 .eml artifact. The sample will be immutably preserved, an investigation case
                 will be automatically initialized, and the MIME structure, headers, and indicators will be extracted.
               </p>
             </div>
 
-            <EmlUploadZone
-              onFileSelected={handleFileSelected}
-              disabled={backendStatus === 'checking'}
-              isUploading={uploadInProgress}
-            />
+            <div className="upload-zone-wrapper">
+              <EmlUploadZone
+                onFileSelected={handleFileSelected}
+                disabled={backendStatus === 'checking'}
+                isUploading={uploadInProgress}
+              />
+            </div>
           </section>
         )}
 

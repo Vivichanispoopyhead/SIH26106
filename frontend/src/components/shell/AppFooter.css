@@ -3,9 +3,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background-color: var(--surface-primary);
+  background-color: rgba(5, 27, 45, 0.94);
   border-top: 1px solid var(--border-subtle);
-  padding: 10px 24px;
+  padding: 9px 28px;
   font-size: 11px;
   color: var(--text-muted);
   width: 100%;

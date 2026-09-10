@@ -4,6 +4,7 @@ import './NavigationSidebar.css';
 interface NavigationSidebarProps {
   activeStage: 'ingest' | 'investigation';
   hasEmail: boolean;
+  onNewAnalysis?: () => void;
 }
 
 const stages = [
@@ -19,20 +20,24 @@ const stages = [
   { number: '10', label: 'Report', key: 'investigation' as const, available: false },
 ];
 
-export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStage, hasEmail }) => (
+export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStage, hasEmail, onNewAnalysis }) => (
   <aside className="navigation-sidebar" aria-label="Investigation stages">
+    <button type="button" className="sidebar-new-analysis" onClick={onNewAnalysis}>
+      <span className="new-analysis-plus">+</span>
+      <span>New analysis</span>
+    </button>
     <div className="sidebar-heading">
       <span className="sidebar-kicker">Investigation</span>
       <span className="sidebar-caption">{hasEmail ? 'Active case' : 'Awaiting artifact'}</span>
     </div>
 
     <nav className="stage-list">
-      {stages.map((stage) => {
+      {stages.map((stage, index) => {
         const enabled = stage.available && hasEmail;
         return (
           <div
             key={stage.number}
-            className={`stage-item ${activeStage === stage.key && enabled ? 'active' : ''} ${!enabled ? 'disabled' : ''}`}
+            className={`stage-item ${activeStage === stage.key && enabled && index === 0 ? 'active' : ''} ${!enabled ? 'disabled' : ''}`}
             aria-disabled={!enabled}
             title={enabled ? stage.label : 'Available after the next analysis stage'}
           >
