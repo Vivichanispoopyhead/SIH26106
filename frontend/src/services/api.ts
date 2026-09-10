@@ -3,6 +3,7 @@ import {
   UploadEmailResponse,
   StartAnalysisResponse,
   ParsedEmailResponse,
+  EmailAnalysisResponse,
   ApiErrorBody,
   ApiErrorCode,
 } from '../types/api';
@@ -71,6 +72,24 @@ export function getFriendlyErrorMessage(err: unknown): { title: string; message:
         return {
           title: 'Artifact Not Found',
           message: 'The requested email identifier does not exist in the active case repository.',
+          code,
+        };
+      case 'ANALYSIS_NOT_FOUND':
+        return {
+          title: 'Analysis Not Found',
+          message: 'No analysis has been initialized for this email artifact.',
+          code,
+        };
+      case 'AI_NOT_CONFIGURED':
+        return {
+          title: 'AI Analyzer Unavailable',
+          message: 'No AI/ML analyzer is configured. Deterministic parsing remains active.',
+          code,
+        };
+      case 'AI_ANALYSIS_FAILED':
+        return {
+          title: 'AI Assessment Failed',
+          message: 'The AI assessment model failed to produce a structured result.',
           code,
         };
       case 'CONNECTION_REFUSED':
@@ -285,6 +304,62 @@ export async function getEmail(
     return (await response.json()) as ParsedEmailResponse;
   } catch {
     throw new ApiError('Backend returned malformed non-JSON data when fetching parsed email.', 'MALFORMED_RESPONSE', response.status);
+  }
+}
+
+/**
+ * Fetch canonical analysis result: GET /api/emails/{email_id}/analysis
+ */
+export async function getAnalysis(
+  emailId: string,
+  baseUrl: string = API_BASE_URL
+): Promise<EmailAnalysisResponse> {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${normalizedBase}/api/emails/${encodeURIComponent(emailId)}/analysis`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Connection failed';
+    throw new ApiError(`Unable to connect to backend at ${endpoint}: ${reason}`, 'CONNECTION_REFUSED');
+  }
+
+  if (!response.ok) {
+    let errorCode: string | undefined;
+    let errorMessage: string | undefined;
+
+    try {
+      const body = (await response.json()) as ApiErrorBody;
+      errorCode = body?.error?.code;
+      errorMessage = body?.error?.message;
+    } catch {
+      // response is not JSON
+    }
+
+    throw new ApiError(
+      errorMessage || `Fetch analysis failed with status ${response.status}`,
+      errorCode || (response.status === 404 ? 'ANALYSIS_NOT_FOUND' : 'INTERNAL_ERROR'),
+      response.status
+    );
+  }
+
+  try {
+    const data = await response.json();
+    if (!data || typeof data !== 'object' || !data.ai_assessment) {
+      throw new Error('Malformed response: missing ai_assessment structure');
+    }
+    return data as EmailAnalysisResponse;
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    throw new ApiError('Backend returned malformed non-JSON data when fetching analysis.', 'MALFORMED_RESPONSE', response.status);
   }
 }
 

@@ -49,6 +49,31 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
         });
       }
 
+      // GET /api/emails/{email_id}/analysis
+      if (url.endsWith('/analysis') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            analysis_id: 'analysis_01J_WORKFLOW_TEST',
+            email_id: 'email_01J_WORKFLOW_TEST',
+            case_id: 'case_01J_WORKFLOW_TEST',
+            status: 'completed',
+            ai_assessment: {
+              status: 'completed',
+              classification: 'Phishing',
+              confidence: 0.95,
+              supporting_signals: ['Suspicious sender domain', 'Account urgency pretext'],
+              evidence_references: ['header:From', 'header:Subject'],
+              provider: 'anthropic',
+              model: 'claude-3-5-sonnet',
+              failure: null,
+            },
+            failure: null,
+          }),
+        });
+      }
+
       // GET /api/emails/{email_id}
       if (url.includes('/api/emails/email_01J_WORKFLOW_TEST')) {
         return Promise.resolve({
@@ -119,6 +144,11 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
     expect(screen.getAllByText('origin@attacker.net').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('198.51.100.22')).toBeInTheDocument();
     expect(screen.getByText('attacker.net')).toBeInTheDocument();
+
+    // Canonical AI assessment panel is displayed with classification and confidence
+    expect(screen.getByTestId('ai-assessment-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-classification-value')).toHaveTextContent('Phishing');
+    expect(screen.getByTestId('ai-confidence-value')).toHaveTextContent('95%');
   });
 
   it('E, G: renders analysis state progression during polling before parsed', async () => {
@@ -149,6 +179,30 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
             email_id: 'email_poll_1',
             case_id: 'case_poll_1',
             status: 'started',
+          }),
+        });
+      }
+
+      if (url.endsWith('/analysis') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            analysis_id: 'analysis_poll_1',
+            email_id: 'email_poll_1',
+            case_id: 'case_poll_1',
+            status: 'completed',
+            ai_assessment: {
+              status: 'not_available',
+              classification: null,
+              confidence: null,
+              supporting_signals: [],
+              evidence_references: [],
+              provider: null,
+              model: null,
+              failure: { code: 'AI_NOT_CONFIGURED', message: 'No AI analyzer configured' },
+            },
+            failure: null,
           }),
         });
       }
@@ -340,6 +394,30 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
             email_id: 'email_retry_success',
             case_id: 'case_retry_success',
             status: 'started',
+          }),
+        });
+      }
+
+      if (url.endsWith('/analysis') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            analysis_id: 'analysis_retry_1',
+            email_id: 'email_retry_success',
+            case_id: 'case_retry_success',
+            status: 'completed',
+            ai_assessment: {
+              status: 'completed',
+              classification: 'Suspicious',
+              confidence: 0.88,
+              supporting_signals: ['Domain age indicator'],
+              evidence_references: ['header:From'],
+              provider: 'anthropic',
+              model: 'claude-3-5-sonnet',
+              failure: null,
+            },
+            failure: null,
           }),
         });
       }

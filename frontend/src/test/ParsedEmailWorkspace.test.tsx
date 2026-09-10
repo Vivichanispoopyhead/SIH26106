@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ParsedEmailWorkspace } from '../components/investigation/ParsedEmailWorkspace';
-import { ParsedEmailResponse } from '../types/api';
+import { ParsedEmailResponse, EmailAnalysisResponse } from '../types/api';
 
 const mockParsedEmail: ParsedEmailResponse = {
   email_id: 'email_01J8TEST999',
@@ -132,5 +132,89 @@ describe('ParsedEmailWorkspace Component', () => {
     const notice = screen.getByTestId('pipeline-notice');
     expect(notice).toHaveTextContent(/Stage 01: Ingestion & Parsing Complete/i);
     expect(notice).toHaveTextContent(/OBSERVED facts/i);
+  });
+
+  it('renders AI assessment panel when analysisData is provided', () => {
+    const mockAnalysis: EmailAnalysisResponse = {
+      analysis_id: 'analysis_01J_WORKSPACE',
+      email_id: 'email_01J8TEST999',
+      case_id: 'case_01J8TEST111',
+      status: 'completed',
+      ai_assessment: {
+        status: 'completed',
+        classification: 'Phishing',
+        confidence: 0.92,
+        supporting_signals: ['Urgent payment request', 'Lookalike domain'],
+        evidence_references: ['header:From', 'header:Subject'],
+        provider: 'anthropic',
+        model: 'claude-3-5-sonnet',
+        failure: null,
+      },
+      failure: null,
+    };
+
+    render(
+      <ParsedEmailWorkspace
+        emailData={mockParsedEmail}
+        analysisData={mockAnalysis}
+      />
+    );
+
+    // AI assessment panel rendered in Comprehensive view
+    expect(screen.getByTestId('ai-assessment-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-classification-value')).toHaveTextContent('Phishing');
+    expect(screen.getByTestId('ai-confidence-value')).toHaveTextContent('92%');
+
+    // Switch to AI Assessment tab
+    fireEvent.click(screen.getByTestId('view-tab-assessment'));
+    expect(screen.getByTestId('section-assessment')).toBeInTheDocument();
+    expect(screen.queryByTestId('section-envelope')).not.toBeInTheDocument();
+
+    // Switch back to Comprehensive view
+    fireEvent.click(screen.getByTestId('view-tab-all'));
+    expect(screen.getByTestId('section-assessment')).toBeInTheDocument();
+    expect(screen.getByTestId('section-envelope')).toBeInTheDocument();
+  });
+
+  it('retains and displays parsed email evidence when AI assessment is partial or failed', () => {
+    const mockPartialAnalysis: EmailAnalysisResponse = {
+      analysis_id: 'analysis_partial_01',
+      email_id: 'email_01J8TEST999',
+      case_id: 'case_01J8TEST111',
+      status: 'partial',
+      ai_assessment: {
+        status: 'failed',
+        classification: null,
+        confidence: null,
+        supporting_signals: [],
+        evidence_references: [],
+        provider: null,
+        model: null,
+        failure: {
+          code: 'AI_ANALYSIS_FAILED',
+          message: 'Model service connection dropped.',
+        },
+      },
+      failure: null,
+    };
+
+    render(
+      <ParsedEmailWorkspace
+        emailData={mockParsedEmail}
+        analysisData={mockPartialAnalysis}
+      />
+    );
+
+    // Warning panel is shown
+    expect(screen.getByTestId('ai-assessment-warning')).toBeInTheDocument();
+    expect(screen.getByText('[AI_ANALYSIS_FAILED]')).toBeInTheDocument();
+
+    // Parsed email evidence remains preserved and fully visible
+    expect(screen.getByTestId('section-envelope')).toBeInTheDocument();
+    expect(screen.getByTestId('section-indicators')).toBeInTheDocument();
+    expect(screen.getByTestId('section-headers')).toBeInTheDocument();
+    expect(screen.getByTestId('section-attachments')).toBeInTheDocument();
+    expect(screen.getAllByText('attacker@adversary.org').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('198.51.100.42')).toBeInTheDocument();
   });
 });

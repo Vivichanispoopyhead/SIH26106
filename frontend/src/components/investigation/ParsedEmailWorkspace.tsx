@@ -1,21 +1,30 @@
 import React, { useState } from 'react';
-import { ParsedEmailResponse } from '../../types/api';
+import { ParsedEmailResponse, EmailAnalysisResponse } from '../../types/api';
 import { EmailHeaderCard } from './EmailStage/EmailHeaderCard';
 import { MimeSummaryCard } from './EmailStage/MimeSummaryCard';
 import { HeaderTable } from './HeadersStage/HeaderTable';
 import { IndicatorTable } from './IndicatorsStage/IndicatorTable';
 import { AttachmentList } from './EmailStage/AttachmentList';
+import { AIAssessmentPanel } from './AIAssessmentStage/AIAssessmentPanel';
 import { ProvenanceBadge } from '../common/ProvenanceBadge';
 import { MonoValue } from '../common/MonoValue';
 import './ParsedEmailWorkspace.css';
 
 interface ParsedEmailWorkspaceProps {
   emailData: ParsedEmailResponse;
+  analysisData?: EmailAnalysisResponse | null;
+  analysisLoading?: boolean;
+  analysisError?: unknown | null;
 }
 
-type WorkspaceView = 'all' | 'metadata' | 'headers' | 'indicators' | 'attachments';
+type WorkspaceView = 'all' | 'assessment' | 'metadata' | 'indicators' | 'headers' | 'attachments';
 
-export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emailData }) => {
+export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
+  emailData,
+  analysisData,
+  analysisLoading,
+  analysisError,
+}) => {
   const [activeView, setActiveView] = useState<WorkspaceView>('all');
 
   const headerCount = emailData.headers?.length || 0;
@@ -24,6 +33,9 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emai
     (emailData.indicators?.domains?.length || 0) +
     (emailData.indicators?.urls?.length || 0);
   const attachmentCount = emailData.attachments?.length || 0;
+
+  const hasAnalysis = analysisData !== undefined || analysisLoading || Boolean(analysisError);
+  const messageCount = (emailData.message?.from?.length || 0) + (emailData.message?.to?.length || 0);
 
   return (
     <div className="parsed-workspace-container" data-testid="parsed-email-workspace">
@@ -49,6 +61,25 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emai
                 <code className="id-file">{emailData.filename}</code>
               </span>
             )}
+          </div>
+
+          <div className="workspace-summary-grid" aria-label="Observed artifact summary">
+            <div className="workspace-summary-item">
+              <span className="summary-label">Observed headers</span>
+              <strong>{headerCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Network indicators</span>
+              <strong>{indicatorCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Attachments</span>
+              <strong>{attachmentCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Envelope addresses</span>
+              <strong>{messageCount}</strong>
+            </div>
           </div>
         </div>
 
@@ -77,6 +108,16 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emai
           data-testid="view-tab-all"
         >
           Comprehensive View
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'assessment'}
+          className={`workspace-tab ${activeView === 'assessment' ? 'active' : ''}`}
+          onClick={() => setActiveView('assessment')}
+          data-testid="view-tab-assessment"
+        >
+          AI Assessment
         </button>
         <button
           type="button"
@@ -122,6 +163,16 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({ emai
 
       {/* Structured Sections */}
       <div className="workspace-content">
+        {(activeView === 'assessment' || (activeView === 'all' && hasAnalysis)) && (
+          <section className="workspace-section" data-testid="section-assessment">
+            <AIAssessmentPanel
+              analysisData={analysisData}
+              isLoading={analysisLoading}
+              error={analysisError}
+            />
+          </section>
+        )}
+
         {(activeView === 'all' || activeView === 'metadata') && (
           <section className="workspace-section" data-testid="section-envelope">
             <EmailHeaderCard message={emailData.message} filename={emailData.filename} />

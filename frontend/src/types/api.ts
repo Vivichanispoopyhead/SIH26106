@@ -101,3 +101,35 @@ export interface ParsedEmailResponse {
   indicators?: IndicatorSet;
   attachments?: AttachmentMetadata[];
 }
+
+export type AIAssessmentStatus =
+  | 'not_available'
+  | 'completed'
+  | 'failed'
+  | 'partial';
+
+export interface AnalysisFailure {
+  code: string;
+  message: string;
+}
+
+export interface AIAssessment {
+  status: AIAssessmentStatus;
+  classification: string | null;
+  confidence: number | null;
+  supporting_signals: string[];
+  evidence_references: string[];
+  provider: string | null;
+  model: string | null;
+  failure: AnalysisFailure | null;
+}
+
+export interface EmailAnalysisResponse {
+  analysis_id: string;
+  email_id: string;
+  case_id: string;
+  status: AnalysisStatus;
+  ai_assessment: AIAssessment;
+  failure: AnalysisFailure | null;
+}
+
