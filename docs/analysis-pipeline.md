@@ -162,6 +162,14 @@ configured, the AI assessment is explicitly `not_available`; it must not
 contain a fabricated classification or confidence. Analyzer failures may be
 represented as a partial analysis result.
 
+The optional Gemini adapter reads `GEMINI_API_KEY`, `GEMINI_MODEL`,
+`GEMINI_API_URL`, `GEMINI_TIMEOUT`, and `GEMINI_MAX_INPUT_CHARS` from the
+server environment. An absent API key selects the explicit `not_available`
+assessment. Provider, timeout, and output-validation failures return failed
+adapter assessments; the existing pipeline records the overall result as
+`partial` after the parser has preserved the email. Tests use local HTTP
+servers and do not require provider credentials.
+
 Possible signals:
 
 Urgency
