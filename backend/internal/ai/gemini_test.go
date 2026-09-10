@@ -59,6 +59,9 @@ func TestGeminiAnalyzerRejectsInvalidProviderAssessments(t *testing.T) {
 		{"confidence outside range", `{"status":"completed","classification":"phishing","confidence":1.1,"supporting_signals":[],"evidence_references":[]}`},
 		{"completed missing classification", `{"status":"completed","confidence":0.8,"supporting_signals":[],"evidence_references":[]}`},
 		{"unsupported status", `{"status":"safe","classification":"benign","confidence":0.8,"supporting_signals":[],"evidence_references":[]}`},
+		{"unsupported classification", `{"status":"completed","classification":"executive_impersonation","confidence":0.8,"supporting_signals":[],"evidence_references":[]}`},
+		{"unknown evidence reference", `{"status":"completed","classification":"phishing","confidence":0.8,"supporting_signals":[],"evidence_references":["header-99"]}`},
+		{"empty partial assessment", `{"status":"partial","supporting_signals":[],"evidence_references":[]}`},
 		{"malformed assessment JSON", `{not-json`},
 	}
 	for _, test := range tests {
@@ -67,6 +70,21 @@ func TestGeminiAnalyzerRejectsInvalidProviderAssessments(t *testing.T) {
 			defer server.Close()
 			assessment, err := newTestGeminiAnalyzer(t, server.URL, time.Second).Assess(context.Background(), sampleInput())
 			if err == nil || assessment.Status != "failed" || assessment.Classification != nil || assessment.Confidence != nil || assessment.Failure == nil {
+				t.Fatalf("assessment = %#v, error = %v", assessment, err)
+			}
+		})
+	}
+}
+
+func TestGeminiAnalyzerAcceptsRiskMappableClassifications(t *testing.T) {
+	for _, classification := range []string{"benign", "phishing", "credential_harvesting", "malware", "fraud", "payment_manipulation"} {
+		t.Run(classification, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeGeminiText(t, w, `{"status":"completed","classification":"`+classification+`","confidence":0.72,"supporting_signals":["supported by supplied evidence"],"evidence_references":["body-1","header-1","url-1","attachment-1"]}`)
+			}))
+			defer server.Close()
+			assessment, err := newTestGeminiAnalyzer(t, server.URL, time.Second).Assess(context.Background(), sampleInput())
+			if err != nil || assessment.Status != "completed" || assessment.Classification == nil || *assessment.Classification != classification || assessment.Confidence == nil || *assessment.Confidence != 0.72 {
 				t.Fatalf("assessment = %#v, error = %v", assessment, err)
 			}
 		})
