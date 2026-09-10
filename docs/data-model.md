@@ -124,12 +124,19 @@ Represents information used to support an investigative conclusion.
 Evidence
 - id
 - case_id
+- email_id
+- analysis_id
 - type
 - source
 - value
+- snippet
 - observed_or_derived
+- header_order
+- related_signal_codes
+- related_ai_evidence_references
 - created_at
 - hash
+- safe_display
 Analysis Result
 
 Represents output from an analyzer.
@@ -161,6 +168,27 @@ RiskSignal
 - category
 - provenance
 - evidence_references
+IP Enrichment
+
+Represents optional passive metadata for an observed IP address. It is not a
+reputation verdict or proof of identity.
+
+IPEnrichment
+- ip_address
+- status
+- country / region / city
+- latitude / longitude
+- asn
+- organization
+- provider
+- confidence
+- retrieved_at
+- provenance
+- failure
+
+Statuses are `enriched`, `not_applicable`, `failed`, and `not_configured`.
+Non-public and invalid addresses are classified locally and are never sent to
+external providers.
 Geolocation
 
 Represents estimated geographic information associated with infrastructure.

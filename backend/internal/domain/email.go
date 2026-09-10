@@ -41,6 +41,8 @@ type AnalysisResult struct {
 	AIAssessment   AIAssessment          `json:"ai_assessment"`
 	Authentication AuthenticationResults `json:"authentication"`
 	ReceivedChain  []ReceivedRelay       `json:"received_chain"`
+	IPEnrichment   []IPEnrichment        `json:"ip_enrichment"`
+	Evidence       []Evidence            `json:"evidence"`
 	Risk           RiskAssessment        `json:"risk"`
 	Failure        *Failure              `json:"failure"`
 }
@@ -106,6 +108,30 @@ type RiskSignal struct {
 	Category           string              `json:"category"`
 	Provenance         string              `json:"provenance"`
 	EvidenceReferences []EvidenceReference `json:"evidence_references"`
+	EvidenceIDs        []string            `json:"evidence_ids,omitempty"`
+}
+
+type Evidence struct {
+	EvidenceID                  string          `json:"evidence_id"`
+	EmailID                     string          `json:"email_id"`
+	AnalysisID                  string          `json:"analysis_id"`
+	Source                      string          `json:"source"`
+	Type                        string          `json:"type"`
+	Value                       string          `json:"value,omitempty"`
+	Snippet                     string          `json:"snippet,omitempty"`
+	Provenance                  string          `json:"provenance"`
+	ObservedAt                  *time.Time      `json:"observed_at,omitempty"`
+	SourceLocation              string          `json:"source_location,omitempty"`
+	HeaderOrder                 *int            `json:"header_order,omitempty"`
+	RelatedSignalCodes          []string        `json:"related_signal_codes"`
+	RelatedAIEvidenceReferences []string        `json:"related_ai_evidence_references"`
+	Hash                        *string         `json:"hash"`
+	SafeDisplay                 EvidenceDisplay `json:"safe_display"`
+}
+
+type EvidenceDisplay struct {
+	Label    string `json:"label"`
+	Redacted bool   `json:"redacted"`
 }
 
 type ParsedEmail struct {
@@ -145,6 +171,25 @@ type Indicators struct {
 	IPs     []string `json:"ips"`
 	Domains []string `json:"domains"`
 	URLs    []string `json:"urls"`
+}
+
+// IPEnrichment is optional provider metadata about an observed IP. It never
+// represents identity or maliciousness by itself.
+type IPEnrichment struct {
+	IPAddress    string     `json:"ip_address"`
+	Status       string     `json:"status"`
+	Country      *string    `json:"country"`
+	Region       *string    `json:"region"`
+	City         *string    `json:"city"`
+	Latitude     *float64   `json:"latitude"`
+	Longitude    *float64   `json:"longitude"`
+	ASN          *string    `json:"asn"`
+	Organization *string    `json:"organization"`
+	Provider     *string    `json:"provider"`
+	Confidence   *float64   `json:"confidence"`
+	RetrievedAt  *time.Time `json:"retrieved_at"`
+	Provenance   string     `json:"provenance"`
+	Failure      *Failure   `json:"failure"`
 }
 
 type Attachment struct {

@@ -13,6 +13,7 @@ import (
 	"sih26106/backend/internal/ai"
 	"sih26106/backend/internal/config"
 	"sih26106/backend/internal/email"
+	"sih26106/backend/internal/enrichment"
 	"sih26106/backend/internal/httpapi"
 	"sih26106/backend/internal/persistence"
 )
@@ -25,6 +26,11 @@ func main() {
 		logger.Error("Gemini configuration is invalid", "error", err)
 		os.Exit(1)
 	}
+	configuredEnricher, err := enrichment.NewHTTPEnricherFromEnv()
+	if err != nil {
+		logger.Error("IP enrichment configuration is invalid", "error", err)
+		os.Exit(1)
+	}
 	store, err := persistence.NewPostgresStore(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("postgres initialization failed", "error", err)
@@ -34,7 +40,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins, email.NewServiceWithAnalyzer(store, configuredAnalyzer)),
+		Handler:           httpapi.NewRouter(logger, cfg.AllowedOrigins, email.NewServiceWithAnalyzerAndEnricher(store, configuredAnalyzer, configuredEnricher)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

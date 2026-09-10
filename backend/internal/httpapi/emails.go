@@ -115,6 +115,26 @@ func (h emailHandler) getAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h emailHandler) getEvidence(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GetEvidence(r.Context(), chi.URLParam(r, "email_id"))
+	switch {
+	case errors.Is(err, persistence.ErrEmailNotFound):
+		writeError(w, http.StatusNotFound, "EMAIL_NOT_FOUND", "The requested email was not found.")
+	case errors.Is(err, persistence.ErrAnalysisNotFound):
+		writeError(w, http.StatusNotFound, "ANALYSIS_NOT_FOUND", "No completed analysis exists for this email.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The evidence could not be retrieved.")
+	case result.Status != "completed" && result.Status != "partial":
+		writeError(w, http.StatusNotFound, "ANALYSIS_NOT_FOUND", "No completed analysis exists for this email.")
+	default:
+		writeJSON(w, http.StatusOK, struct {
+			EmailID    string            `json:"email_id"`
+			AnalysisID string            `json:"analysis_id"`
+			Evidence   []domain.Evidence `json:"evidence"`
+		}{result.EmailID, result.AnalysisID, result.Evidence})
+	}
+}
+
 func writeParsed(w http.ResponseWriter, emailID, caseID, filename string, parsed *domain.ParsedEmail) {
 	if parsed == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The parsed email is unavailable.")

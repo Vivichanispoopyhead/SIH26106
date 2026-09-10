@@ -8,6 +8,8 @@ import (
 
 	"sih26106/backend/internal/ai"
 	"sih26106/backend/internal/domain"
+	"sih26106/backend/internal/enrichment"
+	evidencegen "sih26106/backend/internal/evidence"
 	"sih26106/backend/internal/forensics"
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
@@ -27,6 +29,7 @@ var (
 type Service struct {
 	store    persistence.Store
 	analyzer ai.Analyzer
+	enricher enrichment.IPEnricher
 }
 
 func NewService(store persistence.Store) *Service {
@@ -34,8 +37,15 @@ func NewService(store persistence.Store) *Service {
 }
 
 func NewServiceWithAnalyzer(store persistence.Store, analyzer ai.Analyzer) *Service {
+	return NewServiceWithAnalyzerAndEnricher(store, analyzer, enrichment.UnavailableEnricher{})
+}
+
+func NewServiceWithAnalyzerAndEnricher(store persistence.Store, analyzer ai.Analyzer, enricher enrichment.IPEnricher) *Service {
 	analyzer = ai.NewGuardedAnalyzer(analyzer, ai.DefaultInputPolicy())
-	return &Service{store: store, analyzer: analyzer}
+	if enricher == nil {
+		enricher = enrichment.UnavailableEnricher{}
+	}
+	return &Service{store: store, analyzer: analyzer, enricher: enricher}
 }
 
 func (s *Service) Upload(ctx context.Context, filename string, raw []byte) (*domain.Email, error) {
@@ -65,6 +75,10 @@ func (s *Service) GetAnalysis(ctx context.Context, emailID string) (*domain.Anal
 	return s.store.GetAnalysisResult(ctx, emailID)
 }
 
+func (s *Service) GetEvidence(ctx context.Context, emailID string) (*domain.AnalysisResult, error) {
+	return s.GetAnalysis(ctx, emailID)
+}
+
 func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {
 	analysis, err := s.store.CreateAnalysis(ctx, emailID)
 	if err != nil {
@@ -87,6 +101,8 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		return nil, err
 	}
 
+	auth, received := forensics.AnalyzeHeaders(parsed.Headers)
+	ipResults, enrichmentFailure := s.enrichIPs(ctx, parsed.Indicators, received)
 	assessment, analyzerErr := s.analyzer.Assess(ctx, ai.Input{
 		AnalysisID:    analysis.ID,
 		EmailID:       email.ID,
@@ -97,7 +113,6 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		Indicators:    parsed.Indicators,
 		Attachments:   parsed.Attachments,
 	})
-	auth, received := forensics.AnalyzeHeaders(parsed.Headers)
 	result := &domain.AnalysisResult{
 		AnalysisID:     analysis.ID,
 		EmailID:        email.ID,
@@ -106,6 +121,11 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		AIAssessment:   assessment,
 		Authentication: auth,
 		ReceivedChain:  received,
+		IPEnrichment:   ipResults,
+	}
+	if enrichmentFailure != nil {
+		result.Status = "partial"
+		result.Failure = enrichmentFailure
 	}
 	if analyzerErr != nil {
 		result.Status = "partial"
@@ -121,7 +141,12 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		}
 		result.Failure = result.AIAssessment.Failure
 	}
+	if result.AIAssessment.Status == "failed" && result.Failure == nil {
+		result.Status = "partial"
+		result.Failure = &domain.Failure{Code: "AI_ANALYSIS_FAILED", Message: "The AI assessment could not be completed."}
+	}
 	result.Risk = risk.Evaluate(*result, parsed.Indicators, parsed.Attachments)
+	result.Evidence = evidencegen.Build(email.ID, parsed, result)
 	if err = s.store.SaveAnalysisResult(ctx, analysis.ID, result); err != nil {
 		return nil, err
 	}
@@ -129,6 +154,48 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 		return nil, err
 	}
 	return analysis, nil
+}
+
+func (s *Service) enrichIPs(ctx context.Context, indicators domain.Indicators, received []domain.ReceivedRelay) ([]domain.IPEnrichment, *domain.Failure) {
+	ips := make([]string, 0, len(indicators.IPs)+len(received))
+	seen := make(map[string]struct{})
+	appendIP := func(value string) {
+		if _, ok := seen[value]; ok {
+			return
+		}
+		seen[value] = struct{}{}
+		ips = append(ips, value)
+	}
+	for _, ip := range indicators.IPs {
+		appendIP(ip)
+	}
+	for _, relay := range received {
+		if relay.IPAddress != nil {
+			appendIP(*relay.IPAddress)
+		}
+	}
+	results := make([]domain.IPEnrichment, 0, len(ips))
+	var firstFailure *domain.Failure
+	for _, ip := range ips {
+		value, err := enrichment.LookupIP(ctx, s.enricher, ip)
+		if value.IPAddress == "" {
+			value.IPAddress = ip
+		}
+		results = append(results, value)
+		if value.Status == enrichment.StatusFailed {
+			if firstFailure == nil {
+				if value.Failure != nil {
+					firstFailure = value.Failure
+				} else {
+					firstFailure = &domain.Failure{Code: "IP_ENRICHMENT_FAILED", Message: "IP enrichment was unavailable."}
+				}
+			}
+		}
+		if err != nil && firstFailure == nil {
+			firstFailure = &domain.Failure{Code: "IP_ENRICHMENT_FAILED", Message: "IP enrichment was unavailable."}
+		}
+	}
+	return results, firstFailure
 }
 
 func failureMessage(failure *domain.Failure) string {

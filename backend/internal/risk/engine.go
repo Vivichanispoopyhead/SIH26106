@@ -29,6 +29,9 @@ var Rules = []Rule{
 	{Code: "AI_PHISHING", Description: "AI assessed phishing-related intent.", Points: 30, Category: "ai_assessed"},
 	{Code: "AI_MALWARE", Description: "AI assessed malware-related intent.", Points: 35, Category: "ai_assessed"},
 	{Code: "AI_FRAUD", Description: "AI assessed fraud or payment-manipulation intent.", Points: 30, Category: "ai_assessed"},
+	{Code: "PUBLIC_IP_OBSERVED", Description: "A publicly routable IP address was observed.", Points: 0, Category: "indicator"},
+	{Code: "PRIVATE_IP_OBSERVED", Description: "A non-public IP address was observed.", Points: 0, Category: "indicator"},
+	{Code: "IP_ENRICHMENT_UNAVAILABLE", Description: "Passive IP enrichment was unavailable.", Points: 0, Category: "enrichment"},
 }
 
 var aiRules = map[string]Rule{
@@ -48,7 +51,7 @@ func Evaluate(result domain.AnalysisResult, indicators domain.Indicators, attach
 	}
 	deterministicCount := 0
 	add := func(rule Rule, points int, provenance string, refs []domain.EvidenceReference, description string) {
-		if points <= 0 {
+		if points < 0 {
 			return
 		}
 		if description == "" {
@@ -98,6 +101,7 @@ func Evaluate(result domain.AnalysisResult, indicators domain.Indicators, attach
 			break
 		}
 	}
+	addEnrichmentSignals(result.IPEnrichment, add)
 
 	aiClassification, aiAccepted := normalizedAIClassification(result.AIAssessment)
 	if aiAccepted {
@@ -116,6 +120,20 @@ func Evaluate(result domain.AnalysisResult, indicators domain.Indicators, attach
 	assessment.Verdict = verdictFor(assessment.Score, aiClassification, aiAccepted, executable, deterministicCount, indicators, result.Authentication)
 	assessment.Confidence = confidenceFor(assessment, result.AIAssessment, aiAccepted, deterministicCount)
 	return assessment
+}
+
+func addEnrichmentSignals(values []domain.IPEnrichment, add func(Rule, int, string, []domain.EvidenceReference, string)) {
+	for _, value := range values {
+		ref := domain.EvidenceReference{Source: "ip", Value: value.IPAddress}
+		switch value.Status {
+		case "enriched":
+			add(Rules[11], 0, "OBSERVED", []domain.EvidenceReference{ref}, Rules[11].Description)
+		case "not_applicable":
+			add(Rules[12], 0, "OBSERVED", []domain.EvidenceReference{ref}, Rules[12].Description)
+		case "failed", "not_configured":
+			add(Rules[13], 0, "INFERRED", []domain.EvidenceReference{ref}, Rules[13].Description)
+		}
+	}
 }
 
 func addAuthenticationSignals(auth domain.AuthenticationResults, add func(Rule, int, string, []domain.EvidenceReference, string)) {

@@ -361,6 +361,24 @@ Example:
       "provenance": "inferred"
     }
   ],
+  "ip_enrichment": [
+    {
+      "ip_address": "203.0.113.10",
+      "status": "not_applicable",
+      "country": null,
+      "region": null,
+      "city": null,
+      "latitude": null,
+      "longitude": null,
+      "asn": null,
+      "organization": null,
+      "provider": null,
+      "confidence": null,
+      "retrieved_at": null,
+      "provenance": "OBSERVED",
+      "failure": null
+    }
+  ],
   "risk": {
     "score": 0,
     "level": "low",
@@ -410,6 +428,62 @@ Authentication evidence references identify the source header order and name.
 No DNS or external lookup is performed by this endpoint. Each received relay
 preserves its source header order; sequence and relay confidence are derived
 from the observed header order and available header values.
+
+`ip_enrichment` contains one deduplicated result for each valid IP observed in
+the parsed indicators or Received chain. `status` is `enriched`,
+`not_applicable`, `failed`, or `not_configured`. Private, loopback, link-local,
+multicast, unspecified, documentation/test, and invalid values are
+`not_applicable` and are never sent to a provider. A configured provider result
+is `enriched`; provider errors are `failed`; an absent provider key is
+`not_configured`. Nullable location, ASN, organization, provider, confidence,
+and retrieval time fields remain null when unavailable. `retrieved_at` is an
+RFC3339 timestamp. `provenance` uses `OBSERVED` for directly observed address
+classification, `ENRICHED` for provider-returned metadata, and `INFERRED` for
+backend-derived failure or availability state. Enrichment is contextual
+metadata and geolocation is not proof of identity, ownership, or maliciousness.
+
+### 11.2 Endpoint: Get Email Evidence
+
+`GET /api/emails/{email_id}/evidence` returns safe, typed provenance for a
+completed or partial analysis:
+
+```json
+{
+  "email_id": "email_...",
+  "analysis_id": "analysis_...",
+  "evidence": [
+    {
+      "evidence_id": "evidence_...",
+      "email_id": "email_...",
+      "analysis_id": "analysis_...",
+      "type": "authentication",
+      "source": "Authentication-Results",
+      "value": "spf=fail",
+      "snippet": "Authentication-Results: ... spf=fail",
+      "provenance": "OBSERVED",
+      "header_order": 7,
+      "related_signal_codes": ["SPF_FAIL"],
+      "related_ai_evidence_references": [],
+      "hash": null,
+      "safe_display": {"label": "SPF authentication header", "redacted": true}
+    }
+  ]
+}
+```
+
+Evidence types include `body`, `authentication`, `received`, `ip`, `domain`,
+`url`, `attachment`, `ip_enrichment`, and `ai_assessment`. Provenance is one of
+`OBSERVED`, `ENRICHED`, `INFERRED`, or `AI-ASSESSED`. Values and snippets are
+bounded safe displays; complete raw email content, credentials, provider keys,
+and private keys are never returned. Attachment hashes are returned only when
+already present in parsed metadata. AI references are resolved only when they
+match evidence supplied to the analyzer; unknown references are discarded.
+Each risk signal in the canonical analysis also contains `evidence_ids` that
+point to this list.
+
+The endpoint returns `200 OK` for completed or partial analysis,
+`404 EMAIL_NOT_FOUND` when the email does not exist, and
+`404 ANALYSIS_NOT_FOUND` when analysis has not completed or does not exist.
 
 12. Upload-Only Email Response
 

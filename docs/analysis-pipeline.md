@@ -163,6 +163,20 @@ External enrichment should be cached where practical.
 
 Failures from external providers should not crash the entire analysis.
 
+The first passive enrichment slice processes each deduplicated IP observed in
+indicators or the Received chain. Address classification happens before a
+provider call; private, loopback, link-local, multicast, unspecified,
+documentation/test, and invalid values produce `not_applicable` results without
+network access. A configured HTTP adapter returns provider-independent
+metadata, while missing configuration returns `not_configured`. Provider
+timeouts, HTTP errors, oversized or malformed responses produce `failed`
+results with stable failure codes. One failed IP does not discard successful
+results for other IPs. Enrichment failures make the overall analysis `partial`
+when applicable; an explicit `not_configured` result is non-fatal and preserves
+the existing completed analysis behavior. Parsed, authentication, AI, and risk
+data remain available. Geolocation metadata is contextual and must never be treated as
+proof of identity or maliciousness.
+
 8. Stage 7 — AI Intent Analysis
 
 Analyze the semantic content of the email.
@@ -295,6 +309,15 @@ Timestamp
 Hash where applicable
 
 Evidence must support the final assessment.
+
+The evidence stage materializes safe provenance from parsed headers, indicators,
+attachment metadata, enrichment results, AI references, and risk signals.
+Evidence IDs are stable within an email and analysis result. Header order and
+source locations are retained where available. Body and header snippets are
+bounded and redact obvious credentials; the raw `.eml` is never returned.
+Unknown AI references are ignored rather than converted into evidence. Risk
+signals carry evidence IDs so the investigation workspace can trace each
+conclusion to observed or derived data.
 
 11. Stage 10 — Graph
 

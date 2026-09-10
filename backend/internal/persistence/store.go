@@ -299,6 +299,30 @@ func cloneAnalysisResult(value *domain.AnalysisResult) *domain.AnalysisResult {
 	copy.AIAssessment.SupportingSignals = append([]string{}, value.AIAssessment.SupportingSignals...)
 	copy.AIAssessment.EvidenceReferences = append([]string{}, value.AIAssessment.EvidenceReferences...)
 	copy.ReceivedChain = append([]domain.ReceivedRelay{}, value.ReceivedChain...)
+	copy.IPEnrichment = append([]domain.IPEnrichment{}, value.IPEnrichment...)
+	for index := range copy.IPEnrichment {
+		if value.IPEnrichment[index].Failure != nil {
+			failure := *value.IPEnrichment[index].Failure
+			copy.IPEnrichment[index].Failure = &failure
+		}
+	}
+	copy.Evidence = append([]domain.Evidence{}, value.Evidence...)
+	for index := range copy.Evidence {
+		copy.Evidence[index].RelatedSignalCodes = append([]string{}, value.Evidence[index].RelatedSignalCodes...)
+		copy.Evidence[index].RelatedAIEvidenceReferences = append([]string{}, value.Evidence[index].RelatedAIEvidenceReferences...)
+		if value.Evidence[index].HeaderOrder != nil {
+			order := *value.Evidence[index].HeaderOrder
+			copy.Evidence[index].HeaderOrder = &order
+		}
+		if value.Evidence[index].Hash != nil {
+			hash := *value.Evidence[index].Hash
+			copy.Evidence[index].Hash = &hash
+		}
+		if value.Evidence[index].ObservedAt != nil {
+			timestamp := *value.Evidence[index].ObservedAt
+			copy.Evidence[index].ObservedAt = &timestamp
+		}
+	}
 	copy.Authentication.SPF.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.SPF.EvidenceReferences...)
 	copy.Authentication.DKIM.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DKIM.EvidenceReferences...)
 	copy.Authentication.DMARC.EvidenceReferences = append([]domain.EvidenceReference{}, value.Authentication.DMARC.EvidenceReferences...)
@@ -306,6 +330,7 @@ func cloneAnalysisResult(value *domain.AnalysisResult) *domain.AnalysisResult {
 	copy.Risk.EvidenceReferences = append([]domain.EvidenceReference{}, value.Risk.EvidenceReferences...)
 	for index := range copy.Risk.ContributingSignals {
 		copy.Risk.ContributingSignals[index].EvidenceReferences = append([]domain.EvidenceReference{}, value.Risk.ContributingSignals[index].EvidenceReferences...)
+		copy.Risk.ContributingSignals[index].EvidenceIDs = append([]string{}, value.Risk.ContributingSignals[index].EvidenceIDs...)
 	}
 	return &copy
 }
@@ -327,6 +352,8 @@ func pendingResult(analysisID, emailID, caseID, status, failure string) *domain.
 			DMARC: domain.AuthenticationCheck{Status: "none", EvidenceReferences: []domain.EvidenceReference{}, Explanation: "Authentication has not been evaluated."},
 		},
 		ReceivedChain: []domain.ReceivedRelay{},
+		IPEnrichment:  []domain.IPEnrichment{},
+		Evidence:      []domain.Evidence{},
 		Risk:          domain.RiskAssessment{Level: "low", Verdict: "unknown", Confidence: nil, ContributingSignals: []domain.RiskSignal{}, EvidenceReferences: []domain.EvidenceReference{}},
 	}
 	if failure != "" {

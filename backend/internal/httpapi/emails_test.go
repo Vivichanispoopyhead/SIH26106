@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"sih26106/backend/internal/email"
@@ -225,6 +226,47 @@ func TestAnalysisMissingEmail(t *testing.T) {
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/emails/missing/analysis", nil))
 	assertError(t, response, http.StatusNotFound, "EMAIL_NOT_FOUND")
+}
+
+func TestEvidenceEndpointLifecycleAndProtection(t *testing.T) {
+	router, _ := newEmailRouter()
+	id := uploadID(t, router, []byte("From: sender@example.com\r\nSubject: notice\r\n\r\nVisit https://example.test/login"))
+	before := httptest.NewRecorder()
+	router.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/api/emails/"+id+"/evidence", nil))
+	assertError(t, before, http.StatusNotFound, "ANALYSIS_NOT_FOUND")
+	start := httptest.NewRecorder()
+	router.ServeHTTP(start, httptest.NewRequest(http.MethodPost, "/api/emails/"+id+"/analysis", nil))
+	if start.Code != http.StatusAccepted {
+		t.Fatalf("start = %d", start.Code)
+	}
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/emails/"+id+"/evidence", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("evidence = %d: %s", response.Code, response.Body.String())
+	}
+	var body struct {
+		EmailID    string `json:"email_id"`
+		AnalysisID string `json:"analysis_id"`
+		Evidence   []struct {
+			EvidenceID string `json:"evidence_id"`
+			Type       string `json:"type"`
+			Snippet    string `json:"snippet"`
+		} `json:"evidence"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.EmailID != id || body.AnalysisID == "" || len(body.Evidence) == 0 {
+		t.Fatalf("body = %#v", body)
+	}
+	for _, item := range body.Evidence {
+		if item.EvidenceID == "" || strings.Contains(item.Snippet, "From: sender") {
+			t.Fatalf("unsafe evidence = %#v", item)
+		}
+	}
+	missing := httptest.NewRecorder()
+	router.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/emails/missing/evidence", nil))
+	assertError(t, missing, http.StatusNotFound, "EMAIL_NOT_FOUND")
 }
 
 func TestMissingOptionalHeadersAndParseFailurePreserveArtifact(t *testing.T) {
