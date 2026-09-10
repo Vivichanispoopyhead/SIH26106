@@ -38,3 +38,18 @@ func TestMemoryStoreAnalysisResultPreservesIPEnrichment(t *testing.T) {
 		t.Fatalf("loaded evidence = %#v", loaded.Evidence)
 	}
 }
+
+func TestMemoryStoreCaseEmailLookup(t *testing.T) {
+	store := NewMemoryStore()
+	email, err := store.CreateUpload(context.Background(), "message.eml", []byte("From: a@example.test\r\n\r\nbody"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	emails, err := store.GetCaseEmails(context.Background(), email.CaseID)
+	if err != nil || len(emails) != 1 || emails[0].ID != email.ID {
+		t.Fatalf("emails=%#v err=%v", emails, err)
+	}
+	if _, err := store.GetCaseEmails(context.Background(), "missing-case"); err != ErrCaseNotFound {
+		t.Fatalf("err=%v", err)
+	}
+}

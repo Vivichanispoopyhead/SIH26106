@@ -321,7 +321,15 @@ conclusion to observed or derived data.
 
 11. Stage 10 — Graph
 
-Convert important entities and relationships into graph data.
+Convert important entities and relationships into graph data only when the
+relationship is supported by parsed data or an existing evidence ID. The
+backend exposes `GET /api/cases/{case_id}/graph`, deriving deterministic node
+and edge IDs from persisted email, analysis, enrichment, and evidence data.
+Observed sender, recipient, URL, domain, IP, relay, and attachment nodes retain
+`OBSERVED` provenance. Reconstructed relays and risk relationships are
+`INFERRED`; provider organization/geolocation nodes are `ENRICHED`; AI nodes
+are `AI-ASSESSED`. Unknown AI claims never create graph entities. Geolocation
+remains an estimate derived from an IP, never a person's confirmed location.
 
 Example:
 

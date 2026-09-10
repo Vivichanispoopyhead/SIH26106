@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -20,11 +21,13 @@ import (
 var (
 	ErrEmailNotFound    = errors.New("email not found")
 	ErrAnalysisNotFound = errors.New("analysis not found")
+	ErrCaseNotFound     = errors.New("case not found")
 )
 
 type Store interface {
 	CreateUpload(context.Context, string, []byte) (*domain.Email, error)
 	GetEmail(context.Context, string) (*domain.Email, error)
+	GetCaseEmails(context.Context, string) ([]*domain.Email, error)
 	CreateAnalysis(context.Context, string) (*domain.Analysis, error)
 	UpdateAnalysis(context.Context, string, string, string) error
 	SaveAnalysisResult(context.Context, string, *domain.AnalysisResult) error
@@ -108,6 +111,41 @@ func (s *PostgresStore) GetEmail(ctx context.Context, id string) (*domain.Email,
 	return &email, nil
 }
 
+func (s *PostgresStore) GetCaseEmails(ctx context.Context, caseID string) ([]*domain.Email, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM cases WHERE id=$1)`, caseID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrCaseNotFound
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id,case_id,filename,raw_content,status,COALESCE(parse_failure,''),parsed,created_at,updated_at FROM emails WHERE case_id=$1 ORDER BY created_at,id`, caseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []*domain.Email{}
+	for rows.Next() {
+		var email domain.Email
+		var parsed []byte
+		if err := rows.Scan(&email.ID, &email.CaseID, &email.Filename, &email.RawContent, &email.Status, &email.ParseFailure, &parsed, &email.CreatedAt, &email.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if len(parsed) > 0 {
+			var value domain.ParsedEmail
+			if err := json.Unmarshal(parsed, &value); err != nil {
+				return nil, err
+			}
+			email.Parsed = &value
+		}
+		result = append(result, &email)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *PostgresStore) CreateAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {
 	email, err := s.GetEmail(ctx, emailID)
 	if err != nil {
@@ -179,6 +217,7 @@ func insertAudit(ctx context.Context, tx pgx.Tx, caseID, event string, timestamp
 
 type MemoryStore struct {
 	mu       sync.RWMutex
+	cases    map[string]*domain.Case
 	emails   map[string]*domain.Email
 	analyses map[string]*domain.Analysis
 	results  map[string]*domain.AnalysisResult
@@ -186,15 +225,32 @@ type MemoryStore struct {
 
 // NewMemoryStore is only for isolated HTTP and service tests. The application uses PostgreSQL.
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{emails: map[string]*domain.Email{}, analyses: map[string]*domain.Analysis{}, results: map[string]*domain.AnalysisResult{}}
+	return &MemoryStore{cases: map[string]*domain.Case{}, emails: map[string]*domain.Email{}, analyses: map[string]*domain.Analysis{}, results: map[string]*domain.AnalysisResult{}}
 }
 func (s *MemoryStore) CreateUpload(_ context.Context, filename string, raw []byte) (*domain.Email, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
 	email := &domain.Email{ID: newID("email"), CaseID: newID("case"), Filename: filename, RawContent: append([]byte(nil), raw...), Status: "uploaded", CreatedAt: now, UpdatedAt: now}
+	s.cases[email.CaseID] = &domain.Case{ID: email.CaseID, Status: "created", CreatedAt: now, UpdatedAt: now}
 	s.emails[email.ID] = email
 	return cloneEmail(email), nil
+}
+
+func (s *MemoryStore) GetCaseEmails(_ context.Context, caseID string) ([]*domain.Email, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if _, ok := s.cases[caseID]; !ok {
+		return nil, ErrCaseNotFound
+	}
+	result := []*domain.Email{}
+	for _, email := range s.emails {
+		if email.CaseID == caseID {
+			result = append(result, cloneEmail(email))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
+	return result, nil
 }
 func (s *MemoryStore) GetEmail(_ context.Context, id string) (*domain.Email, error) {
 	s.mu.RLock()

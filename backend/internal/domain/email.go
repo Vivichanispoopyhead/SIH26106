@@ -134,6 +134,34 @@ type EvidenceDisplay struct {
 	Redacted bool   `json:"redacted"`
 }
 
+type Graph struct {
+	CaseID      string      `json:"case_id"`
+	EmailIDs    []string    `json:"email_ids"`
+	AnalysisIDs []string    `json:"analysis_ids"`
+	Nodes       []GraphNode `json:"nodes"`
+	Edges       []GraphEdge `json:"edges"`
+}
+
+type GraphNode struct {
+	ID          string            `json:"id"`
+	Type        string            `json:"type"`
+	Label       string            `json:"label"`
+	Value       string            `json:"value"`
+	Provenance  string            `json:"provenance"`
+	EvidenceIDs []string          `json:"evidence_ids"`
+	Metadata    map[string]string `json:"metadata"`
+}
+
+type GraphEdge struct {
+	ID           string   `json:"id"`
+	SourceNodeID string   `json:"source_node_id"`
+	TargetNodeID string   `json:"target_node_id"`
+	Relationship string   `json:"relationship"`
+	Provenance   string   `json:"provenance"`
+	EvidenceIDs  []string `json:"evidence_ids"`
+	Confidence   *float64 `json:"confidence"`
+}
+
 type ParsedEmail struct {
 	Message       MessageMetadata `json:"message"`
 	MIME          MIMEMetadata    `json:"mime"`

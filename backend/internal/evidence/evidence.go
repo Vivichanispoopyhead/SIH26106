@@ -46,6 +46,18 @@ func Build(emailID string, parsed *domain.ParsedEmail, result *domain.AnalysisRe
 		id := b.add(domain.Evidence{Type: "body", Source: "plain_text_body", Value: "body-1", Snippet: safeText(parsed.PlainTextBody, 320), Provenance: Observed, SourceLocation: "plain_text_body", SafeDisplay: domain.EvidenceDisplay{Label: "Plain-text body excerpt", Redacted: true}})
 		b.reference("body-1", id)
 	}
+	for index, value := range parsed.Message.From {
+		id := b.add(domain.Evidence{Type: "sender", Source: "From", Value: safeText(value, 256), Snippet: safeText(value, 256), Provenance: Observed, SourceLocation: "message.from", SafeDisplay: domain.EvidenceDisplay{Label: "Sender"}})
+		b.reference(fmt.Sprintf("sender-%d", index+1), id)
+	}
+	recipientIndex := 0
+	for _, values := range [][]string{parsed.Message.To, parsed.Message.CC, parsed.Message.ReplyTo} {
+		for _, value := range values {
+			recipientIndex++
+			id := b.add(domain.Evidence{Type: "recipient", Source: "To/Cc/Reply-To", Value: safeText(value, 256), Snippet: safeText(value, 256), Provenance: Observed, SourceLocation: "message.recipient", SafeDisplay: domain.EvidenceDisplay{Label: "Recipient"}})
+			b.reference(fmt.Sprintf("recipient-%d", recipientIndex), id)
+		}
+	}
 	b.addAuthentication(parsed.Headers, result.Authentication)
 	b.addReceived(parsed.Headers, result.ReceivedChain)
 	for index, value := range parsed.Indicators.URLs {

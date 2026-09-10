@@ -135,6 +135,20 @@ func (h emailHandler) getEvidence(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h emailHandler) getGraph(w http.ResponseWriter, r *http.Request) {
+	graph, err := h.service.GetGraph(r.Context(), chi.URLParam(r, "case_id"))
+	switch {
+	case errors.Is(err, persistence.ErrCaseNotFound):
+		writeError(w, http.StatusNotFound, "CASE_NOT_FOUND", "The requested case was not found.")
+	case errors.Is(err, email.ErrGraphNotAvailable):
+		writeError(w, http.StatusNotFound, "GRAPH_NOT_AVAILABLE", "No analyzed email graph is available for this case.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The graph could not be retrieved.")
+	default:
+		writeJSON(w, http.StatusOK, graph)
+	}
+}
+
 func writeParsed(w http.ResponseWriter, emailID, caseID, filename string, parsed *domain.ParsedEmail) {
 	if parsed == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The parsed email is unavailable.")

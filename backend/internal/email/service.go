@@ -11,6 +11,7 @@ import (
 	"sih26106/backend/internal/enrichment"
 	evidencegen "sih26106/backend/internal/evidence"
 	"sih26106/backend/internal/forensics"
+	"sih26106/backend/internal/graph"
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
 	"sih26106/backend/internal/risk"
@@ -19,11 +20,12 @@ import (
 const MaxUploadSize int64 = 50 << 20
 
 var (
-	ErrMissingFile     = errors.New("missing file")
-	ErrEmptyFile       = errors.New("empty file")
-	ErrUnsupportedType = errors.New("unsupported file type")
-	ErrTooLarge        = errors.New("file too large")
-	ErrParseFailed     = errors.New("email parse failed")
+	ErrMissingFile       = errors.New("missing file")
+	ErrEmptyFile         = errors.New("empty file")
+	ErrUnsupportedType   = errors.New("unsupported file type")
+	ErrTooLarge          = errors.New("file too large")
+	ErrParseFailed       = errors.New("email parse failed")
+	ErrGraphNotAvailable = errors.New("graph not available")
 )
 
 type Service struct {
@@ -77,6 +79,34 @@ func (s *Service) GetAnalysis(ctx context.Context, emailID string) (*domain.Anal
 
 func (s *Service) GetEvidence(ctx context.Context, emailID string) (*domain.AnalysisResult, error) {
 	return s.GetAnalysis(ctx, emailID)
+}
+
+func (s *Service) GetGraph(ctx context.Context, caseID string) (*domain.Graph, error) {
+	emails, err := s.store.GetCaseEmails(ctx, caseID)
+	if err != nil {
+		return nil, err
+	}
+	inputs := make([]graph.EmailAnalysis, 0, len(emails))
+	for _, email := range emails {
+		if email.Parsed == nil {
+			continue
+		}
+		result, err := s.store.GetAnalysisResult(ctx, email.ID)
+		if errors.Is(err, persistence.ErrAnalysisNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if result.Status != "completed" && result.Status != "partial" {
+			continue
+		}
+		inputs = append(inputs, graph.EmailAnalysis{Email: email, Parsed: email.Parsed, Result: result})
+	}
+	if len(inputs) == 0 {
+		return nil, ErrGraphNotAvailable
+	}
+	return graph.Build(caseID, inputs), nil
 }
 
 func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {

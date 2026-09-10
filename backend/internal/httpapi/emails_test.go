@@ -269,6 +269,51 @@ func TestEvidenceEndpointLifecycleAndProtection(t *testing.T) {
 	assertError(t, missing, http.StatusNotFound, "EMAIL_NOT_FOUND")
 }
 
+func TestGraphEndpointAndMissingCase(t *testing.T) {
+	router, _ := newEmailRouter()
+	upload := uploadRequest(t, router, "graph.eml", []byte("From: sender@example.test\r\nTo: recipient@example.test\r\n\r\nVisit https://example.test/login"))
+	var uploaded struct {
+		CaseID  string `json:"case_id"`
+		EmailID string `json:"email_id"`
+	}
+	if err := json.NewDecoder(upload.Body).Decode(&uploaded); err != nil {
+		t.Fatal(err)
+	}
+	before := httptest.NewRecorder()
+	router.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/graph", nil))
+	assertError(t, before, http.StatusNotFound, "GRAPH_NOT_AVAILABLE")
+	start := httptest.NewRecorder()
+	router.ServeHTTP(start, httptest.NewRequest(http.MethodPost, "/api/emails/"+uploaded.EmailID+"/analysis", nil))
+	if start.Code != http.StatusAccepted {
+		t.Fatalf("start = %d", start.Code)
+	}
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/graph", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("graph = %d: %s", response.Code, response.Body.String())
+	}
+	var graph struct {
+		CaseID   string   `json:"case_id"`
+		EmailIDs []string `json:"email_ids"`
+		Nodes    []struct {
+			ID          string   `json:"id"`
+			EvidenceIDs []string `json:"evidence_ids"`
+		} `json:"nodes"`
+		Edges []struct {
+			ID string `json:"id"`
+		} `json:"edges"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&graph); err != nil {
+		t.Fatal(err)
+	}
+	if graph.CaseID != uploaded.CaseID || len(graph.EmailIDs) != 1 || len(graph.Nodes) == 0 || len(graph.Edges) == 0 {
+		t.Fatalf("graph body = %#v", graph)
+	}
+	missing := httptest.NewRecorder()
+	router.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/cases/missing/graph", nil))
+	assertError(t, missing, http.StatusNotFound, "CASE_NOT_FOUND")
+}
+
 func TestMissingOptionalHeadersAndParseFailurePreserveArtifact(t *testing.T) {
 	router, store := newEmailRouter()
 	validID := uploadID(t, router, []byte("From: sender@example.com\r\n\r\nplain body"))

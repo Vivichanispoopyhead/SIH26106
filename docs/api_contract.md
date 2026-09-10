@@ -87,10 +87,10 @@ Implemented MVP Slice
 POST /api/emails
 POST /api/emails/{email_id}/analysis
 GET  /api/emails/{email_id}
+GET  /api/cases/{case_id}/graph
 Future Investigation Endpoints
 GET  /api/cases/{case_id}
 GET  /api/cases/{case_id}/analysis
-GET  /api/cases/{case_id}/graph
 GET  /api/cases/{case_id}/timeline
 GET  /api/cases/{case_id}/map
 GET  /api/cases/{case_id}/evidence
@@ -484,6 +484,55 @@ point to this list.
 The endpoint returns `200 OK` for completed or partial analysis,
 `404 EMAIL_NOT_FOUND` when the email does not exist, and
 `404 ANALYSIS_NOT_FOUND` when analysis has not completed or does not exist.
+
+### 11.3 Endpoint: Get Case Graph
+
+`GET /api/cases/{case_id}/graph` derives an evidence-backed graph from the
+case's persisted parsed emails, analysis results, enrichment, and evidence:
+
+```json
+{
+  "case_id": "case_...",
+  "email_ids": ["email_..."],
+  "analysis_ids": ["analysis_..."],
+  "nodes": [
+    {
+      "id": "ip:203.0.113.77",
+      "type": "ip",
+      "label": "203.0.113.77",
+      "value": "203.0.113.77",
+      "provenance": "OBSERVED",
+      "evidence_ids": ["evidence_..."],
+      "metadata": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:email:email_...:contains:ip:203.0.113.77",
+      "source_node_id": "email:email_...",
+      "target_node_id": "ip:203.0.113.77",
+      "relationship": "contains",
+      "provenance": "OBSERVED",
+      "evidence_ids": ["evidence_..."],
+      "confidence": null
+    }
+  ]
+}
+```
+
+Node types are `email`, `sender`, `recipient`, `domain`, `url`, `ip`,
+`relay`, `attachment`, `organization`, `geolocation`, `ai_assessment`, and
+`risk_signal`. Relationships include `from`, `to`, `contains`,
+`received_via`, `observed_ip`, `has_domain`, `associated_with`,
+`located_in_estimate`, `assessed_by`, and `supported_by`. Graph IDs are
+deterministic for the same case data. Nodes and edges carry only evidence IDs,
+safe metadata, and bounded parsed values; raw email content and provider
+secrets are never copied into the graph. Geolocation nodes are estimates
+derived from an IP and are not a person's physical location or identity.
+
+The endpoint returns `404 CASE_NOT_FOUND` when the case does not exist and
+`404 GRAPH_NOT_AVAILABLE` when the case exists but has no completed or partial
+analyzed email. The graph is derived on demand and is not stored separately.
 
 12. Upload-Only Email Response
 

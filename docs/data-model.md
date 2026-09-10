@@ -137,6 +137,38 @@ Evidence
 - created_at
 - hash
 - safe_display
+
+Graph
+
+Represents the evidence-backed relationships for one case.
+
+Graph
+- case_id
+- email_ids
+- analysis_ids
+- nodes
+- edges
+
+GraphNode
+- id
+- type
+- label
+- value
+- provenance
+- evidence_ids
+- metadata
+
+GraphEdge
+- id
+- source_node_id
+- target_node_id
+- relationship
+- provenance
+- evidence_ids
+- confidence
+
+Graph nodes and edges are derived from persisted analysis and evidence rather
+than maintained as a second graph database copy.
 Analysis Result
 
 Represents output from an analyzer.
