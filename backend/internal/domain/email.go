@@ -41,6 +41,7 @@ type AnalysisResult struct {
 	AIAssessment   AIAssessment          `json:"ai_assessment"`
 	Authentication AuthenticationResults `json:"authentication"`
 	ReceivedChain  []ReceivedRelay       `json:"received_chain"`
+	Risk           RiskAssessment        `json:"risk"`
 	Failure        *Failure              `json:"failure"`
 }
 
@@ -73,8 +74,10 @@ type AuthenticationCheck struct {
 }
 
 type EvidenceReference struct {
-	HeaderOrder int    `json:"header_order"`
-	HeaderName  string `json:"header_name"`
+	HeaderOrder int    `json:"header_order,omitempty"`
+	HeaderName  string `json:"header_name,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Value       string `json:"value,omitempty"`
 }
 
 type ReceivedRelay struct {
@@ -85,6 +88,24 @@ type ReceivedRelay struct {
 	SourceHeaderOrder int     `json:"source_header_order"`
 	Confidence        string  `json:"confidence"`
 	Provenance        string  `json:"provenance"`
+}
+
+type RiskAssessment struct {
+	Score               int                 `json:"score"`
+	Level               string              `json:"level"`
+	Verdict             string              `json:"verdict"`
+	Confidence          *float64            `json:"confidence"`
+	ContributingSignals []RiskSignal        `json:"contributing_signals"`
+	EvidenceReferences  []EvidenceReference `json:"evidence_references"`
+}
+
+type RiskSignal struct {
+	Code               string              `json:"code"`
+	Description        string              `json:"description"`
+	Points             int                 `json:"points"`
+	Category           string              `json:"category"`
+	Provenance         string              `json:"provenance"`
+	EvidenceReferences []EvidenceReference `json:"evidence_references"`
 }
 
 type ParsedEmail struct {
