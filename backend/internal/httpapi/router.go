@@ -26,6 +26,8 @@ func NewRouter(logger *slog.Logger, allowedOrigins []string, service *email.Serv
 	router.Get("/api/emails/{email_id}", handler.get)
 	router.Get("/api/cases/{case_id}/graph", handler.getGraph)
 	router.Get("/api/cases/{case_id}/timeline", handler.getTimeline)
+	router.Post("/api/cases/{case_id}/report", handler.createReport)
+	router.Get("/api/cases/{case_id}/report", handler.getReport)
 	router.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "The requested resource was not found.")
 	})

@@ -26,6 +26,7 @@ var (
 
 type Store interface {
 	CreateUpload(context.Context, string, []byte) (*domain.Email, error)
+	GetCase(context.Context, string) (*domain.Case, error)
 	GetEmail(context.Context, string) (*domain.Email, error)
 	GetCaseEmails(context.Context, string) ([]*domain.Email, error)
 	CreateAnalysis(context.Context, string) (*domain.Analysis, error)
@@ -110,6 +111,18 @@ func (s *PostgresStore) GetEmail(ctx context.Context, id string) (*domain.Email,
 		email.Parsed = &value
 	}
 	return &email, nil
+}
+
+func (s *PostgresStore) GetCase(ctx context.Context, id string) (*domain.Case, error) {
+	row := s.pool.QueryRow(ctx, `SELECT id,status,created_at,updated_at FROM cases WHERE id=$1`, id)
+	var value domain.Case
+	if err := row.Scan(&value.ID, &value.Status, &value.CreatedAt, &value.UpdatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrCaseNotFound
+		}
+		return nil, err
+	}
+	return &value, nil
 }
 
 func (s *PostgresStore) GetCaseEmails(ctx context.Context, caseID string) ([]*domain.Email, error) {
@@ -272,6 +285,16 @@ func (s *MemoryStore) GetEmail(_ context.Context, id string) (*domain.Email, err
 		return nil, ErrEmailNotFound
 	}
 	return cloneEmail(email), nil
+}
+func (s *MemoryStore) GetCase(_ context.Context, id string) (*domain.Case, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	value, ok := s.cases[id]
+	if !ok {
+		return nil, ErrCaseNotFound
+	}
+	copy := *value
+	return &copy, nil
 }
 func (s *MemoryStore) CreateAnalysis(_ context.Context, emailID string) (*domain.Analysis, error) {
 	s.mu.Lock()

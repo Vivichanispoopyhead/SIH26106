@@ -199,6 +199,27 @@ Timeline timestamps and source fields are nullable. Received-chain sequence
 and source header order remain separate because chronology can be inferred from
 header order. Timeline events are derived on demand instead of persisted as a
 second event store.
+
+Forensic Report
+
+Represents a safe structured snapshot assembled from persisted case analysis.
+
+ForensicReport
+- report_id
+- schema_version
+- case
+- generated_at
+- status
+- emails
+- analyses
+- evidence
+- graph summary
+- timeline
+- limitations
+
+Reports contain metadata and safe evidence displays only. Raw email bytes,
+provider prompts, secrets, and executable contents are excluded. Reports are
+derived on demand rather than stored in a separate reporting database.
 Analysis Result
 
 Represents output from an analyzer.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"sih26106/backend/internal/ai"
 	"sih26106/backend/internal/domain"
@@ -14,6 +15,7 @@ import (
 	"sih26106/backend/internal/graph"
 	"sih26106/backend/internal/parser"
 	"sih26106/backend/internal/persistence"
+	reportgen "sih26106/backend/internal/report"
 	"sih26106/backend/internal/risk"
 	"sih26106/backend/internal/timeline"
 )
@@ -28,6 +30,7 @@ var (
 	ErrParseFailed          = errors.New("email parse failed")
 	ErrGraphNotAvailable    = errors.New("graph not available")
 	ErrTimelineNotAvailable = errors.New("timeline not available")
+	ErrReportNotAvailable   = errors.New("report not available")
 )
 
 type Service struct {
@@ -141,6 +144,46 @@ func (s *Service) GetTimeline(ctx context.Context, caseID string) (*domain.Timel
 		return nil, ErrTimelineNotAvailable
 	}
 	return timeline.Build(caseID, inputs), nil
+}
+
+func (s *Service) GetReport(ctx context.Context, caseID string) (*domain.ForensicReport, error) {
+	caseValue, err := s.store.GetCase(ctx, caseID)
+	if err != nil {
+		return nil, err
+	}
+	emails, err := s.store.GetCaseEmails(ctx, caseID)
+	if err != nil {
+		return nil, err
+	}
+	graphInputs := make([]graph.EmailAnalysis, 0, len(emails))
+	timelineInputs := make([]timeline.EmailAnalysis, 0, len(emails))
+	reportInputs := make([]reportgen.Input, 0, len(emails))
+	for _, email := range emails {
+		if email.Parsed == nil {
+			continue
+		}
+		result, resultErr := s.store.GetAnalysisResult(ctx, email.ID)
+		if errors.Is(resultErr, persistence.ErrAnalysisNotFound) {
+			continue
+		}
+		if resultErr != nil {
+			return nil, resultErr
+		}
+		if result.Status != "completed" && result.Status != "partial" {
+			continue
+		}
+		analysis, analysisErr := s.store.GetLatestAnalysis(ctx, email.ID)
+		if analysisErr != nil && !errors.Is(analysisErr, persistence.ErrAnalysisNotFound) {
+			return nil, analysisErr
+		}
+		graphInputs = append(graphInputs, graph.EmailAnalysis{Email: email, Parsed: email.Parsed, Result: result})
+		timelineInputs = append(timelineInputs, timeline.EmailAnalysis{Email: email, Parsed: email.Parsed, Result: result, Analysis: analysis})
+		reportInputs = append(reportInputs, reportgen.Input{Email: email, Parsed: email.Parsed, Result: result, Analysis: analysis})
+	}
+	if len(reportInputs) == 0 {
+		return nil, ErrReportNotAvailable
+	}
+	return reportgen.Build(caseValue, reportInputs, graph.Build(caseID, graphInputs), timeline.Build(caseID, timelineInputs), time.Now().UTC()), nil
 }
 
 func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.Analysis, error) {

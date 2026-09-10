@@ -372,6 +372,78 @@ func TestTimelineEndpointLifecycleAndOrdering(t *testing.T) {
 	assertError(t, missing, http.StatusNotFound, "CASE_NOT_FOUND")
 }
 
+func TestReportEndpointLifecycleAndSafety(t *testing.T) {
+	router, _ := newEmailRouter()
+	upload := uploadRequest(t, router, "report.eml", []byte(multipartEmail()))
+	var uploaded struct {
+		CaseID  string `json:"case_id"`
+		EmailID string `json:"email_id"`
+	}
+	if err := json.NewDecoder(upload.Body).Decode(&uploaded); err != nil {
+		t.Fatal(err)
+	}
+	before := httptest.NewRecorder()
+	router.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/report", nil))
+	assertError(t, before, http.StatusNotFound, "REPORT_NOT_AVAILABLE")
+	start := httptest.NewRecorder()
+	router.ServeHTTP(start, httptest.NewRequest(http.MethodPost, "/api/emails/"+uploaded.EmailID+"/analysis", nil))
+	if start.Code != http.StatusAccepted {
+		t.Fatalf("start = %d: %s", start.Code, start.Body.String())
+	}
+	created := httptest.NewRecorder()
+	router.ServeHTTP(created, httptest.NewRequest(http.MethodPost, "/api/cases/"+uploaded.CaseID+"/report", nil))
+	if created.Code != http.StatusOK {
+		t.Fatalf("create report = %d: %s", created.Code, created.Body.String())
+	}
+	var report struct {
+		ReportID      string `json:"report_id"`
+		SchemaVersion string `json:"schema_version"`
+		Status        string `json:"status"`
+		Emails        []struct {
+			EmailID     string `json:"email_id"`
+			Attachments []struct {
+				SHA256 string `json:"sha256"`
+			} `json:"attachments"`
+		} `json:"emails"`
+		Analyses []struct {
+			Risk struct {
+				Score int `json:"score"`
+			} `json:"risk"`
+			AI struct {
+				Status string `json:"status"`
+			} `json:"ai_assessment"`
+		} `json:"analyses"`
+		Evidence []struct {
+			EvidenceID string `json:"evidence_id"`
+		} `json:"evidence"`
+		Graph struct {
+			NodeCount int `json:"node_count"`
+		} `json:"graph"`
+		Timeline []struct {
+			ID string `json:"id"`
+		} `json:"timeline"`
+		Limitations []string `json:"limitations"`
+	}
+	if err := json.NewDecoder(created.Body).Decode(&report); err != nil {
+		t.Fatal(err)
+	}
+	if report.ReportID == "" || report.SchemaVersion != "1.0" || report.Status != "completed" || len(report.Emails) != 1 || report.Emails[0].EmailID != uploaded.EmailID || len(report.Analyses) != 1 || report.Analyses[0].AI.Status != "not_available" || len(report.Evidence) == 0 || report.Graph.NodeCount == 0 || len(report.Timeline) == 0 {
+		t.Fatalf("report = %#v", report)
+	}
+	encoded := created.Body.String()
+	if strings.Contains(encoded, "From: sender") || strings.Contains(encoded, "plain content") || strings.Contains(encoded, "PRIVATE KEY") {
+		t.Fatalf("unsafe report body = %s", encoded)
+	}
+	loaded := httptest.NewRecorder()
+	router.ServeHTTP(loaded, httptest.NewRequest(http.MethodGet, "/api/cases/"+uploaded.CaseID+"/report", nil))
+	if loaded.Code != http.StatusOK || !strings.Contains(loaded.Body.String(), report.ReportID) {
+		t.Fatalf("loaded report = %d: %s", loaded.Code, loaded.Body.String())
+	}
+	missing := httptest.NewRecorder()
+	router.ServeHTTP(missing, httptest.NewRequest(http.MethodPost, "/api/cases/missing/report", nil))
+	assertError(t, missing, http.StatusNotFound, "CASE_NOT_FOUND")
+}
+
 func TestMissingOptionalHeadersAndParseFailurePreserveArtifact(t *testing.T) {
 	router, store := newEmailRouter()
 	validID := uploadID(t, router, []byte("From: sender@example.com\r\n\r\nplain body"))

@@ -163,6 +163,29 @@ func (h emailHandler) getTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h emailHandler) createReport(w http.ResponseWriter, r *http.Request) {
+	report, err := h.service.GetReport(r.Context(), chi.URLParam(r, "case_id"))
+	handleReportResult(w, report, err)
+}
+
+func (h emailHandler) getReport(w http.ResponseWriter, r *http.Request) {
+	report, err := h.service.GetReport(r.Context(), chi.URLParam(r, "case_id"))
+	handleReportResult(w, report, err)
+}
+
+func handleReportResult(w http.ResponseWriter, report any, err error) {
+	switch {
+	case errors.Is(err, persistence.ErrCaseNotFound):
+		writeError(w, http.StatusNotFound, "CASE_NOT_FOUND", "The requested case was not found.")
+	case errors.Is(err, email.ErrReportNotAvailable):
+		writeError(w, http.StatusNotFound, "REPORT_NOT_AVAILABLE", "No completed or partial analysis is available for this case.")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The report could not be generated.")
+	default:
+		writeJSON(w, http.StatusOK, report)
+	}
+}
+
 func writeParsed(w http.ResponseWriter, emailID, caseID, filename string, parsed *domain.ParsedEmail) {
 	if parsed == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "The parsed email is unavailable.")

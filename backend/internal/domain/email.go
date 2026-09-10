@@ -186,6 +186,57 @@ type TimelineEvent struct {
 	Metadata          map[string]string `json:"metadata"`
 }
 
+type ForensicReport struct {
+	ReportID      string             `json:"report_id"`
+	SchemaVersion string             `json:"schema_version"`
+	Case          ReportCase         `json:"case"`
+	GeneratedAt   time.Time          `json:"generated_at"`
+	Status        string             `json:"status"`
+	Emails        []ReportEmail      `json:"emails"`
+	Analyses      []ReportAnalysis   `json:"analyses"`
+	Evidence      []Evidence         `json:"evidence"`
+	Graph         ReportGraphSummary `json:"graph"`
+	Timeline      []TimelineEvent    `json:"timeline"`
+	Limitations   []string           `json:"limitations"`
+}
+
+type ReportCase struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ReportEmail struct {
+	EmailID     string          `json:"email_id"`
+	Filename    string          `json:"filename"`
+	CreatedAt   time.Time       `json:"created_at"`
+	Message     MessageMetadata `json:"message"`
+	MIME        MIMEMetadata    `json:"mime"`
+	Indicators  Indicators      `json:"indicators"`
+	Attachments []Attachment    `json:"attachments"`
+}
+
+type ReportAnalysis struct {
+	AnalysisID     string                `json:"analysis_id"`
+	EmailID        string                `json:"email_id"`
+	CaseID         string                `json:"case_id"`
+	Status         string                `json:"status"`
+	Risk           RiskAssessment        `json:"risk"`
+	Authentication AuthenticationResults `json:"authentication"`
+	ReceivedChain  []ReceivedRelay       `json:"received_chain"`
+	IPEnrichment   []IPEnrichment        `json:"ip_enrichment"`
+	AIAssessment   AIAssessment          `json:"ai_assessment"`
+}
+
+type ReportGraphSummary struct {
+	NodeCount int            `json:"node_count"`
+	EdgeCount int            `json:"edge_count"`
+	NodeTypes map[string]int `json:"node_types"`
+	NodeIDs   []string       `json:"node_ids"`
+	EdgeIDs   []string       `json:"edge_ids"`
+}
+
 type ParsedEmail struct {
 	Message       MessageMetadata `json:"message"`
 	MIME          MIMEMetadata    `json:"mime"`

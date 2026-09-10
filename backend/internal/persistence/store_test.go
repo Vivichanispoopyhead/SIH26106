@@ -75,3 +75,21 @@ func TestMemoryStoreLatestAnalysisMetadata(t *testing.T) {
 		t.Fatalf("latest analysis = %#v", loaded)
 	}
 }
+
+func TestMemoryStoreCaseRoundTrip(t *testing.T) {
+	store := NewMemoryStore()
+	email, err := store.CreateUpload(context.Background(), "message.eml", []byte("From: a@example.test\r\n\r\nbody"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := store.GetCase(context.Background(), email.CaseID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.ID != email.CaseID || value.Status != "created" || value.CreatedAt.IsZero() || value.UpdatedAt.IsZero() {
+		t.Fatalf("case = %#v", value)
+	}
+	if _, err := store.GetCase(context.Background(), "missing-case"); err != ErrCaseNotFound {
+		t.Fatalf("missing case error = %v", err)
+	}
+}

@@ -89,14 +89,13 @@ POST /api/emails/{email_id}/analysis
 GET  /api/emails/{email_id}
 GET  /api/cases/{case_id}/graph
 GET  /api/cases/{case_id}/timeline
+POST /api/cases/{case_id}/report
+GET  /api/cases/{case_id}/report
 Future Investigation Endpoints
 GET  /api/cases/{case_id}
 GET  /api/cases/{case_id}/analysis
 GET  /api/cases/{case_id}/map
 GET  /api/cases/{case_id}/evidence
-POST /api/cases/{case_id}/report
-GET  /api/cases/{case_id}/report
-
 Future endpoints must extend the existing contract rather than breaking the initial upload model.
 
 6. Endpoint: Upload Email
@@ -584,6 +583,57 @@ invents timestamps.
 The endpoint returns `404 CASE_NOT_FOUND` for a missing case and
 `404 TIMELINE_NOT_AVAILABLE` when no completed or partial analyzed email is
 available. The timeline is derived on demand rather than stored separately.
+
+### 11.5 Endpoints: Forensic Report
+
+`POST /api/cases/{case_id}/report` synchronously creates or refreshes the
+latest structured report. `GET /api/cases/{case_id}/report` returns the report
+derived from the same persisted case data. Both return `200 OK`; no request
+body is required for the MVP.
+
+The response has schema version `1.0`:
+
+```json
+{
+  "report_id": "report:case_...:analysis_...",
+  "schema_version": "1.0",
+  "case": {
+    "id": "case_...",
+    "status": "created",
+    "created_at": "2026-09-10T12:00:00Z",
+    "updated_at": "2026-09-10T12:05:00Z"
+  },
+  "generated_at": "2026-09-10T12:05:01Z",
+  "status": "completed",
+  "emails": [],
+  "analyses": [],
+  "evidence": [],
+  "graph": {"node_count": 0, "edge_count": 0, "node_types": {}, "node_ids": [], "edge_ids": []},
+  "timeline": [],
+  "limitations": []
+}
+```
+
+The `analyses` entries contain risk score, level, verdict, confidence,
+contributing signals, authentication, Received-chain data, IP enrichment, and
+AI assessment. `emails` contain safe message metadata, indicators, attachment
+metadata and hashes; the report never contains raw email bytes, plain-text
+bodies, complete provider prompts, credentials, API keys, private keys, or
+executable contents. The graph field is a summary of node counts, edge counts,
+and node types; the graph endpoint remains the relationship API.
+
+Report `status` is `completed` when all included analyses are completed and
+`partial` when any included analysis is partial. Limitations state that AI
+output is an evaluated assessment rather than ground truth, geolocation is an
+IP-derived estimate rather than proof of physical location, URLs were not
+automatically visited, attachments were not executed, and missing providers do
+not imply benign behavior. Nested analysis data preserves `OBSERVED`,
+`ENRICHED`, `INFERRED`, and `AI-ASSESSED` provenance.
+
+The endpoint returns `404 CASE_NOT_FOUND` for an unknown case and
+`404 REPORT_NOT_AVAILABLE` when no completed or partial analysis exists.
+Reports are derived on demand; `report_id` is deterministic for a case and its
+analysis IDs while `generated_at` changes when regenerated.
 
 12. Upload-Only Email Response
 

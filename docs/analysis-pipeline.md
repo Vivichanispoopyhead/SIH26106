@@ -363,7 +363,21 @@ Observed header facts remain `OBSERVED`; reconstructed relay ordering is
 annotation would be `AI-ASSESSED`. The timeline is derived on demand and does
 not become a second event database.
 
-13. Stage 12 — Map
+## 13. Stage 12 — Report
+
+Expose `POST /api/cases/{case_id}/report` and
+`GET /api/cases/{case_id}/report` as a safe structured JSON representation of
+the persisted investigation. The report combines case metadata, parsed email
+metadata, authentication, Received-chain timeline, indicators, attachments,
+enrichment, AI assessment, risk, evidence, graph summary, timeline, and
+limitations. It excludes raw bodies and artifacts, credentials, provider
+prompts, and executable contents. Partial analysis remains reportable, with
+provider failures and unavailable stages listed as limitations. AI output stays
+an assessment, geolocation stays an IP-derived estimate, URLs are not visited,
+and attachments are not executed. Reports are derived on demand so PostgreSQL
+and MemoryStore use the same source of truth.
+
+14. Stage 13 — Map
 
 Display infrastructure locations derived from geolocation data.
 
@@ -379,22 +393,6 @@ Source: MaxMind
 
 Do not present geolocation as exact physical location or confirmed actor identity.
 
-14. Stage 13 — Report
-
-The final report should combine:
-
-Case information
-Email summary
-Authentication results
-Relay timeline
-Indicators
-Enrichment
-AI assessment
-Risk assessment
-Evidence
-Graph relationships
-Geographic findings
-Limitations
 15. Failure Handling
 
 A failed analyzer must not necessarily fail the entire pipeline.
