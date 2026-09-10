@@ -6,6 +6,12 @@
   background-color: var(--bg-canvas);
 }
 
+.application-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .diagnostic-ribbon {
   display: flex;
   align-items: center;
@@ -129,10 +135,10 @@
 
 .main-content-viewport {
   flex: 1;
-  max-width: 1200px;
   width: 100%;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 28px clamp(16px, 3vw, 40px);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -184,4 +190,24 @@
 .loading-stage-section,
 .workspace-stage-section {
   width: 100%;
+}
+
+@media (max-width: 640px) {
+  .diagnostic-ribbon {
+    padding: 8px 16px;
+  }
+
+  .diagnostic-left,
+  .diagnostic-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .main-content-viewport {
+    padding: 20px 14px;
+  }
+
+  .ingestion-section {
+    padding: 22px 16px;
+  }
 }

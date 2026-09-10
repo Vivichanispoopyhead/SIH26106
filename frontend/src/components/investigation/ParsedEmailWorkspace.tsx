@@ -35,6 +35,7 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
   const attachmentCount = emailData.attachments?.length || 0;
 
   const hasAnalysis = analysisData !== undefined || analysisLoading || Boolean(analysisError);
+  const messageCount = (emailData.message?.from?.length || 0) + (emailData.message?.to?.length || 0);
 
   return (
     <div className="parsed-workspace-container" data-testid="parsed-email-workspace">
@@ -60,6 +61,25 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
                 <code className="id-file">{emailData.filename}</code>
               </span>
             )}
+          </div>
+
+          <div className="workspace-summary-grid" aria-label="Observed artifact summary">
+            <div className="workspace-summary-item">
+              <span className="summary-label">Observed headers</span>
+              <strong>{headerCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Network indicators</span>
+              <strong>{indicatorCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Attachments</span>
+              <strong>{attachmentCount}</strong>
+            </div>
+            <div className="workspace-summary-item">
+              <span className="summary-label">Envelope addresses</span>
+              <strong>{messageCount}</strong>
+            </div>
           </div>
         </div>
 

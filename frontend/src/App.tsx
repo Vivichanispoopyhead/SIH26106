@@ -12,6 +12,7 @@ import { API_BASE_URL } from './config/env';
 import { ParsedEmailResponse, EmailAnalysisResponse } from './types/api';
 import { AppHeader } from './components/shell/AppHeader';
 import { AppFooter } from './components/shell/AppFooter';
+import { NavigationSidebar } from './components/shell/NavigationSidebar';
 import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
 import { LoadingStage, WorkflowState } from './components/states/LoadingStage';
 import { ErrorBanner } from './components/states/ErrorBanner';
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<unknown | null>(null);
 
   const pollingRef = useRef<boolean>(false);
+  const uploadInProgress = workflowState === 'uploading';
 
   // Health check handler
   const checkHealth = useCallback(async () => {
@@ -245,8 +247,14 @@ export const App: React.FC = () => {
         </div>
       </section>
 
-      {/* Main Workspace */}
-      <main className="main-content-viewport">
+      <div className="application-body">
+        <NavigationSidebar
+          activeStage={workflowState === 'idle' ? 'ingest' : 'investigation'}
+          hasEmail={Boolean(emailId)}
+        />
+
+        {/* Main Workspace */}
+        <main className="main-content-viewport">
         {error != null && (
           <div className="error-container">
             <ErrorBanner
@@ -271,7 +279,7 @@ export const App: React.FC = () => {
             <EmlUploadZone
               onFileSelected={handleFileSelected}
               disabled={backendStatus === 'checking'}
-              isUploading={false}
+              isUploading={uploadInProgress}
             />
           </section>
         )}
@@ -302,7 +310,8 @@ export const App: React.FC = () => {
             />
           </section>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Footer */}
       <AppFooter apiBaseUrl={API_BASE_URL} />
