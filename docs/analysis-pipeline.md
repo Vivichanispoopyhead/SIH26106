@@ -180,6 +180,24 @@ adapter assessments; the existing pipeline records the overall result as
 `partial` after the parser has preserved the email. Tests use local HTTP
 servers and do not require provider credentials.
 
+Gemini receives untrusted email data as evidence, never as instructions. Prompt
+injection text must not be followed, URLs must not be browsed, and attachments
+must not be executed. The adapter accepts only the approved classification
+vocabulary and evidence references supplied by the backend. Unknown response
+fields, unsupported classifications, invalid confidence values, and invented
+evidence references are rejected.
+
+Classification guidance is conservative: `benign` means no meaningful
+malicious indicators were found, not guaranteed safety; `suspicious` means
+concerning but inconclusive evidence; `phishing` covers credential theft,
+login harvesting, or malicious-link behavior; `credential_harvesting` is the
+more specific label when appropriate; `malware` requires supplied payload or
+strong attachment-delivery evidence; and `fraud` or
+`payment_manipulation` require financial deception evidence. Urgency alone and
+authentication failure alone are not proof of maliciousness. Insufficient or
+contradictory evidence should produce `unknown` or a conservative `partial`
+assessment.
+
 Possible signals:
 
 Urgency

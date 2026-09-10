@@ -1,63 +1,68 @@
-/* SIH26106 Forensic Design Tokens */
+/* SIH26106 Forensic Design Tokens — Deep Signal */
 :root {
-  /* Surfaces & Backgrounds */
-  --bg-canvas: #0B0D0F;
-  --surface-primary: #111418;
-  --surface-secondary: #171B20;
-  --surface-elevated: #1D2228;
-  --surface-hover: #232931;
+  /* Surfaces — deep navy with a soft radial depth, not flat fill */
+  --bg-canvas: #060f1d;
+  --surface-primary: #0b1e33;
+  --surface-secondary: #0f2740;
+  --surface-elevated: #14324f;
+  --surface-hover: #1a3d5e;
 
   /* Hairlines & Separators */
-  --border-subtle: #1F242B;
-  --border-standard: #2A3037;
-  --border-strong: #3C454F;
+  --border-subtle: rgba(148, 197, 230, 0.10);
+  --border-standard: rgba(148, 197, 230, 0.18);
+  --border-strong: rgba(56, 189, 248, 0.45);
 
   /* Text Contrast Hierarchy */
-  --text-primary: #E7E9EC;
-  --text-secondary: #A2A8B0;
-  --text-muted: #6F7781;
-  --text-ghost: #4B525B;
+  --text-primary: #f3f8fd;
+  --text-secondary: #a9c2d9;
+  --text-muted: #6c87a3;
+  --text-ghost: #3f5570;
 
-  /* Primary Accents */
-  --accent-cyan: #19C3D1;
-  --accent-cyan-hover: #38D7E3;
-  --accent-cyan-tint: rgba(25, 195, 209, 0.08);
+  /* Primary Accent — used sparingly: CTAs, icon marks, key highlights only */
+  --accent-cyan: #38bdf8;
+  --accent-cyan-hover: #67cdfb;
+  --accent-cyan-tint: rgba(56, 189, 248, 0.12);
+  --accent-cyan-deep: #0284c7;
 
-  /* Forensic Status & Verdicts */
-  --verdict-clean: #32C48D;
-  --verdict-warning: #E5A93D;
-  --verdict-high: #E15B64;
-  --verdict-critical: #FF4D5A;
-  --verdict-neutral: #6F7781;
+  /* Forensic Verdicts */
+  --verdict-clean: #34d399;
+  --verdict-warning: #fbbf24;
+  --verdict-high: #f87171;
+  --verdict-critical: #ef4444;
+  --verdict-neutral: #64748b;
 
   /* Epistemic Provenance Palette */
-  --epistemic-observed: #19C3D1;
-  --epistemic-observed-bg: #111827;
-  --epistemic-observed-border: rgba(25, 195, 209, 0.4);
+  --epistemic-observed: #38bdf8;
+  --epistemic-observed-bg: #0c2b45;
+  --epistemic-observed-border: rgba(56, 189, 248, 0.4);
 
-  --epistemic-enriched: #8B9BB4;
-  --epistemic-enriched-bg: #161C24;
-  --epistemic-enriched-border: rgba(139, 155, 180, 0.4);
+  --epistemic-enriched: #94a3b8;
+  --epistemic-enriched-bg: #14283c;
+  --epistemic-enriched-border: rgba(148, 163, 184, 0.32);
 
-  --epistemic-inferred: #E5A93D;
-  --epistemic-inferred-bg: #241C12;
-  --epistemic-inferred-border: rgba(229, 169, 61, 0.4);
+  --epistemic-inferred: #fbbf24;
+  --epistemic-inferred-bg: #332711;
+  --epistemic-inferred-border: rgba(251, 191, 36, 0.35);
 
-  --epistemic-ai: #9D7BFC;
-  --epistemic-ai-bg: #20182E;
-  --epistemic-ai-border: rgba(157, 123, 252, 0.4);
+  --epistemic-ai: #a78bfa;
+  --epistemic-ai-bg: #201b3d;
+  --epistemic-ai-border: rgba(167, 139, 250, 0.35);
 
-  /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  /* Typography — Sora carries the confident display voice,
+     Plex Sans handles body/UI, Plex Mono reserved for real data only */
+  --font-display: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
 
-  /* Radii */
-  --radius-none: 0px;
-  --radius-badge: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  /* Radii — cards share one generous radius (they're genuine parallel
+     choices); pills are fully rounded; buttons sit between the two */
+  --radius-pill: 999px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6);
-  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.7), 0 0 0 1px #2A3037;
+  /* Shadows — soft depth, no neon glow */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-panel: 0 18px 40px rgba(2, 10, 20, 0.45);
+  --shadow-card-hover: 0 22px 48px rgba(2, 10, 20, 0.55);
 }

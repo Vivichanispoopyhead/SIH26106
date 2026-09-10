@@ -16,10 +16,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <header className="app-topbar" data-testid="app-header">
       <div className="topbar-brand">
-        <span className="brand-logo-badge">SIH26106</span>
+        <span className="brand-logo-badge" aria-hidden="true">
+          <span className="brand-logo-mark">S</span>
+          <span>SIH26106</span>
+        </span>
         <div className="brand-titles">
           <h1 className="brand-name">Forensic Threat Intelligence</h1>
-          <span className="brand-sub">Vertical Slice #1 • EML Ingestion & Parsing</span>
+          <span className="brand-sub">Forensic Threat Intelligence Console</span>
         </div>
       </div>
 

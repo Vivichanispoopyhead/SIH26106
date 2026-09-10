@@ -3,11 +3,38 @@
   flex: 0 0 224px;
   min-height: 100%;
   padding: 20px 12px;
-  background: var(--surface-primary);
-  border-right: 1px solid var(--border-standard);
+  background: rgba(7, 43, 70, 0.96);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+}
+
+.sidebar-new-analysis {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: rgba(19, 184, 237, 0.9);
+  color: #031522;
+  border: 1px solid var(--accent-cyan);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.sidebar-new-analysis:hover {
+  background: var(--accent-cyan-hover);
+  border-color: var(--accent-cyan-hover);
+}
+
+.new-analysis-plus {
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1;
 }
 
 .sidebar-heading {
@@ -56,7 +83,7 @@
 
 .stage-item.active {
   color: var(--text-primary);
-  background: var(--surface-secondary);
+  background: rgba(19, 184, 237, 0.1);
   border-left-color: var(--accent-cyan);
 }
 
@@ -116,6 +143,7 @@
   }
 
   .sidebar-heading,
+  .sidebar-new-analysis span:not(.new-analysis-plus),
   .stage-label,
   .stage-state,
   .sidebar-note {
@@ -125,6 +153,10 @@
   .stage-item {
     justify-content: center;
     padding-inline: 0;
+  }
+
+  .sidebar-new-analysis {
+    min-height: 40px;
   }
 
   .stage-number {

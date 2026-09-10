@@ -3,9 +3,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background-color: var(--surface-primary);
+  background-color: rgba(7, 34, 56, 0.96);
   border-bottom: 1px solid var(--border-standard);
-  padding: 12px 24px;
+  padding: 13px 28px;
   width: 100%;
   flex-wrap: wrap;
 }
@@ -17,15 +17,29 @@
 }
 
 .brand-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--accent-cyan);
-  background-color: var(--accent-cyan-tint);
-  border: 1px solid var(--accent-cyan);
-  border-radius: var(--radius-badge);
-  padding: 3px 8px;
+  background-color: transparent;
+  border: 0;
+  padding: 0;
   letter-spacing: 0.08em;
+}
+
+.brand-logo-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-size: 15px;
+  font-weight: 800;
+  transform: skew(-8deg);
 }
 
 .brand-titles {
@@ -34,7 +48,7 @@
 }
 
 .brand-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.01em;
@@ -56,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: var(--surface-secondary);
+  background-color: rgba(11, 53, 84, 0.8);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
@@ -76,17 +90,17 @@
 }
 
 .btn-new-sample {
-  background-color: var(--accent-cyan-tint);
+  background-color: var(--accent-cyan);
   border: 1px solid var(--accent-cyan);
-  color: var(--accent-cyan);
+  color: #031522;
   font-size: 12px;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  padding: 5px 12px;
+  padding: 7px 13px;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .btn-new-sample:hover {
-  background-color: var(--accent-cyan);
-  color: var(--bg-canvas);
+  background-color: var(--accent-cyan-hover);
+  color: #031522;
 }

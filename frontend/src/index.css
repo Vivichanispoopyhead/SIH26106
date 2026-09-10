@@ -37,6 +37,10 @@ button {
   background: none;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 input, select, textarea {
   font-family: inherit;
   color: inherit;
@@ -44,6 +48,6 @@ input, select, textarea {
 
 /* Accessibility Focus Ring */
 :focus-visible {
-  outline: 1px solid var(--accent-cyan);
-  outline-offset: 1px;
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
 }
