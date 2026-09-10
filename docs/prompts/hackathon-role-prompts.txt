@@ -1,0 +1,367 @@
+SIH26106 HACKATHON ROLE PROMPTS
+
+These prompts coordinate the AIML, backend, and frontend workstreams.
+Each agent must synchronize with main before starting and must respect ownership
+boundaries.
+
+===============================================================================
+1. AIML DEVELOPER PROMPT
+===============================================================================
+
+You are implementing the concrete AIML adapter for SIH26106.
+
+First synchronize your checkout:
+
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+Read:
+- backend/internal/ai/analyzer.go
+- backend/internal/domain/email.go
+- backend/internal/email/service.go
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/codex-role.md
+
+The existing backend interface is:
+
+type Analyzer interface {
+    Assess(context.Context, Input) (domain.AIAssessment, error)
+}
+
+Implement a concrete Gemini/provider analyzer inside:
+backend/internal/ai/
+
+Requirements:
+
+1. Implement the existing ai.Analyzer interface. Do not create a new HTTP
+   endpoint or change the existing JSON contract.
+
+2. Use the normalized ai.Input fields only:
+   - Message metadata
+   - PlainTextBody
+   - Headers
+   - Indicators
+   - Attachment metadata
+   - AnalysisID, EmailID, and CaseID
+
+3. Never send raw attachment bytes to the provider.
+
+4. Never execute attachments, scripts, HTML, or URLs. Never retrieve URLs.
+
+5. Read credentials and configuration from environment variables. Never
+   hard-code API keys.
+
+6. Validate provider output strictly:
+   - status must be valid
+   - classification must be non-empty when status is completed
+   - confidence must be between 0 and 1
+   - supporting signals must be bounded and concise
+   - provider and model must be present for successful results
+   - malformed output must return a structured failure
+   - never fabricate a classification or confidence
+
+7. Treat AI output as an assessment, not confirmed truth. Do not claim attacker
+   identity or physical location.
+
+8. Return:
+   - completed when a valid provider result is received
+   - failed when the provider errors or returns invalid output
+   - not_available when configuration is absent, if that is the established
+     behavior
+   - partial only when the result is useful but some AI fields are unavailable
+
+9. Add environment configuration documentation without committing secrets.
+   Use names such as:
+   - GEMINI_API_KEY
+   - GEMINI_MODEL
+   - GEMINI_TIMEOUT
+
+10. Add tests using a fake provider or httptest server for:
+    - successful classification
+    - confidence parsing
+    - confidence outside 0..1
+    - malformed provider response
+    - provider timeout
+    - missing API key
+    - ensuring attachment bytes are never sent
+    - ensuring failure responses contain no fabricated classification
+
+11. Do not modify frontend/.
+
+12. Do not wire the analyzer into cmd/api/main.go yet. Keep provider
+    implementation and runtime wiring as separate changes.
+
+Run:
+
+cd backend
+gofmt -w ./internal/ai
+go test ./...
+go build ./...
+
+Commit only the AIML adapter work:
+
+git add backend docs
+git commit -m "Implement AIML analyzer adapter"
+git push origin <your-branch>
+
+Report the commit hash, environment variables, provider/model, and test results.
+
+===============================================================================
+2. BACKEND DEVELOPER PROMPT
+===============================================================================
+
+You are the backend developer for SIH26106.
+
+First synchronize your checkout:
+
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+Ownership:
+- You own backend/.
+- You may update docs/api_contract.md and docs/analysis-pipeline.md when the
+  API changes.
+- Do not modify frontend/.
+- Do not redesign the existing upload or analysis-result contract.
+
+Read:
+- docs/architecture.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/api_contract.md
+- docs/codex-role.md
+- backend/internal/domain/email.go
+- backend/internal/email/service.go
+- backend/internal/httpapi/
+- backend/internal/persistence/
+- backend/internal/parser/
+- backend/internal/ai/analyzer.go
+
+Implement deterministic forensic analysis as the next backend slice.
+
+Phase 1 requirements:
+
+1. Add typed authentication-analysis models for:
+   - SPF
+   - DKIM
+   - DMARC
+   - result status: pass, fail, neutral, none, or unknown
+   - source header/evidence reference
+   - explanation
+
+2. Add received-chain models for:
+   - sequence/order
+   - hostname
+   - IP address
+   - timestamp when safely parseable
+   - source header order
+   - confidence/provenance
+
+3. Parse only information already present in the email headers. Do not perform
+   DNS lookups or external requests in this task.
+
+4. Preserve the distinction:
+   - observed: directly present in headers
+   - parsed: normalized from headers
+   - inferred: derived relay ordering or anomaly
+
+5. Integrate the new deterministic results into the existing AnalysisResult
+   without breaking:
+   - POST /api/emails
+   - POST /api/emails/{email_id}/analysis
+   - GET /api/emails/{email_id}
+   - GET /api/emails/{email_id}/analysis
+
+6. Add evidence references that identify the source header order. Do not
+   fabricate evidence.
+
+7. Update the API contract and pipeline documentation with the exact response
+   fields.
+
+8. Add tests using realistic .eml fixtures for:
+   - multiple Received headers
+   - malformed Received header
+   - Authentication-Results pass/fail values
+   - missing authentication headers
+   - preserved header order
+   - partial parsing behavior
+
+9. Do not add Redis, pgvector, WebSocket, or external reputation services yet.
+
+Run:
+
+cd backend
+gofmt -w ./...
+go test ./...
+go build ./...
+
+Do not wire an external AI provider unless its adapter has already been
+committed and reviewed. If it is available, create a separate commit for
+runtime wiring so it can be reverted independently.
+
+Commit message for deterministic analysis:
+
+"Add deterministic authentication and relay analysis"
+
+Push the branch and report:
+- commit hash
+- API fields added
+- tests run
+- any contract changes
+
+===============================================================================
+3. FRONTEND DEVELOPER PROMPT
+===============================================================================
+
+You are the frontend developer for SIH26106.
+
+First synchronize your checkout:
+
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+Ownership:
+- Modify frontend/ only.
+- Do not modify backend/.
+- Do not invent endpoints or fields.
+- Use docs/api_contract.md as the source of truth.
+
+Read:
+- docs/api_contract.md
+- docs/ui-ux-design-system.md
+- docs/forensic_ui_ux.md
+- docs/antigravity-role.md
+- frontend/src/App.tsx
+- frontend/src/services/api.ts
+- frontend/src/types/api.ts
+- frontend/src/components/investigation/ParsedEmailWorkspace.tsx
+- frontend/src/components/common/ProvenanceBadge.tsx
+
+Implement frontend support for the canonical analysis result endpoint:
+
+GET /api/emails/{email_id}/analysis
+
+The documented response contains:
+
+{
+  "analysis_id": "...",
+  "email_id": "...",
+  "case_id": "...",
+  "status": "completed",
+  "ai_assessment": {
+    "status": "not_available",
+    "classification": null,
+    "confidence": null,
+    "supporting_signals": [],
+    "evidence_references": [],
+    "provider": null,
+    "model": null,
+    "failure": null
+  },
+  "failure": null
+}
+
+Requirements:
+
+1. Add strict TypeScript types for the analysis result and AI assessment.
+
+2. Add getAnalysis(emailId) to frontend/src/services/api.ts.
+
+3. Fetch the analysis result after the existing parsed-email workflow succeeds.
+   Do not remove the existing parsed-email retrieval.
+
+4. Add a visually polished AI assessment panel to the existing investigation
+   workspace.
+
+5. Display:
+   - pipeline status
+   - AI assessment status
+   - classification only when present
+   - confidence as a percentage only when present
+   - supporting signals
+   - evidence references
+   - provider/model when present
+
+6. For status "not_available" and code "AI_NOT_CONFIGURED":
+   - do not show it as an application crash
+   - show a neutral "AI assessment unavailable" state
+   - explain that deterministic parsing is still available
+
+7. For status "failed" or overall status "partial":
+   - show a warning/partial-state panel
+   - retain and display parsed email evidence
+
+8. Keep risk and confidence visually separate. Do not invent a risk score.
+
+9. Use the existing ProvenanceBadge and design tokens. AI output must use the
+   AI-ASSESSED provenance style.
+
+10. Do not render raw email HTML with dangerouslySetInnerHTML.
+
+11. Add tests for:
+    - successful AI assessment
+    - not_available state
+    - partial/failed state
+    - malformed API response
+    - API error behavior
+    - confidence rendering
+    - evidence reference rendering
+
+12. Update only frontend files unless a documentation correction is necessary.
+
+Run:
+
+cd frontend
+npm test
+npm run build
+
+Commit:
+
+"Display canonical AI assessment in investigation workspace"
+
+Push the branch and report:
+- commit hash
+- files changed
+- tests and build results
+
+===============================================================================
+COORDINATION RULES
+===============================================================================
+
+Each agent should work on a separate branch:
+
+git switch -c feature/aiml-adapter
+git switch -c feature/frontend-analysis-panel
+git switch -c feature/auth-relay-analysis
+
+Do not let multiple agents edit the same files simultaneously.
+
+Recommended merge order:
+
+Current main
+   ↓
+AIML adapter implementation
+   ↓
+Backend runtime wiring
+   ↓
+Frontend analysis-result panel
+   ↓
+Deterministic authentication/relay analysis
+
+The first hackathon milestone is:
+
+Upload EML
+  ↓
+Parse and preserve evidence
+  ↓
+Extract indicators
+  ↓
+Run AIML assessment
+  ↓
+Display classification + confidence + signals
+  ↓
+Show provenance and limitations

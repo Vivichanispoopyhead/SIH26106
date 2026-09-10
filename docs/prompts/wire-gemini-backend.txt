@@ -1,0 +1,129 @@
+SIH26106 - Backend Gemini Runtime-Wiring Prompt
+
+The AIML adapter has now been merged into main.
+
+First synchronize:
+
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+Read:
+- backend/internal/ai/analyzer.go
+- backend/internal/ai/gemini.go
+- backend/internal/ai/gemini_test.go
+- backend/internal/email/service.go
+- backend/cmd/api/main.go
+- backend/internal/config/config.go
+- .env.example
+- docs/api_contract.md
+
+Task:
+Wire the existing Gemini analyzer into the running backend without changing
+the HTTP API contract.
+
+Requirements:
+
+1. Load Gemini configuration using:
+
+ai.NewGeminiAnalyzerFromEnv()
+
+2. If GEMINI_API_KEY is absent, use the existing
+ai.UnavailableAnalyzer{} fallback and keep local development working.
+
+3. If provider configuration is invalid, fail clearly at startup. Do not
+silently pretend that AI analysis succeeded.
+
+4. Construct the email service using:
+
+email.NewServiceWithAnalyzer(store, configuredAnalyzer)
+
+5. Do not modify frontend/.
+
+6. Do not change:
+   - POST /api/emails
+   - POST /api/emails/{email_id}/analysis
+   - GET /api/emails/{email_id}
+   - GET /api/emails/{email_id}/analysis
+
+7. Never log GEMINI_API_KEY or any secret.
+
+8. Add focused tests for:
+   - missing API key selects UnavailableAnalyzer
+   - valid Gemini configuration selects the Gemini analyzer
+   - invalid timeout/model/endpoint configuration returns an error
+   - the application service receives the configured analyzer
+
+9. Update .env.example only with safe variable names and placeholder values.
+Never add a real API key.
+
+Run:
+
+cd backend
+gofmt -w ./...
+go test ./...
+go build ./...
+
+Commit only the runtime wiring:
+
+git add backend .env.example
+git commit -m "Wire Gemini analyzer into backend"
+git push origin <your-branch>
+
+Report the commit hash and test results.
+
+===============================================================================
+POST-MERGE LOCAL VERIFICATION
+===============================================================================
+
+After the runtime-wiring change is merged into main, configure local
+environment variables without committing the key:
+
+cd /mnt/d/SIH/SIH26106
+
+export GEMINI_API_KEY='your-key-here'
+export GEMINI_MODEL='gemini-2.0-flash'
+export GEMINI_TIMEOUT='15s'
+
+Start infrastructure:
+
+docker compose up -d postgres redis
+
+Start the backend:
+
+cd backend
+DATABASE_URL='postgres://sih26106:change-me-for-local-development@localhost:5432/sih26106?sslmode=disable' \
+go run ./cmd/api
+
+Upload the fixture from a second terminal:
+
+curl -s -X POST http://localhost:8080/api/emails \
+  -F 'file=@/mnt/d/SIH/SIH26106/backend/test-fixtures/basic-phishing.eml'
+
+Use the returned email_id to start analysis:
+
+curl -s -X POST \
+  http://localhost:8080/api/emails/<EMAIL_ID>/analysis
+
+Retrieve the result:
+
+curl -s http://localhost:8080/api/emails/<EMAIL_ID>/analysis | jq
+
+With successful Gemini wiring, the result should contain:
+
+{
+  "status": "completed",
+  "ai_assessment": {
+    "status": "completed",
+    "classification": "...",
+    "confidence": 0.0,
+    "supporting_signals": [],
+    "evidence_references": [],
+    "provider": "google",
+    "model": "gemini-2.0-flash"
+  }
+}
+
+The frontend may not display this result until its analysis-result panel is
+merged. Test the API with curl first, then test the complete browser workflow
+after the frontend change is merged.

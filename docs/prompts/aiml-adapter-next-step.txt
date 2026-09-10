@@ -1,0 +1,107 @@
+SIH26106 - Next Step for AIML Developer
+
+Your friend's next task should be implementing the AIML adapter behind the
+existing backend interface, not creating a separate API or changing the
+frontend.
+
+The interface is:
+
+backend/internal/ai.Analyzer
+
+with:
+
+Assess(context.Context, ai.Input) (domain.AIAssessment, error)
+
+The adapter receives:
+
+- Plain-text email body
+- Subject and sender/recipient metadata
+- Headers
+- Extracted URLs, domains, and IPs
+- Attachment names, MIME types, sizes, and SHA-256 hashes
+- analysis_id, email_id, and case_id
+
+It must return:
+
+- status
+- classification
+- confidence
+- supporting signals
+- evidence references
+- provider/model metadata
+- failure information when applicable
+
+PROMPT TO GIVE YOUR FRIEND
+
+Implement the AIML adapter for SIH26106 using the existing backend contract.
+
+Read:
+- backend/internal/ai/analyzer.go
+- backend/internal/domain/email.go
+- backend/internal/email/service.go
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/codex-role.md
+
+The existing interface is:
+
+type Analyzer interface {
+    Assess(context.Context, Input) (domain.AIAssessment, error)
+}
+
+Implement a concrete analyzer in backend/internal/ai/ that uses the chosen
+AIML/LLM provider.
+
+Rules:
+- Do not modify frontend/.
+- Do not add or change HTTP endpoints.
+- Do not change the JSON response contract.
+- Do not expose raw attachment bytes to the model.
+- Do not execute attachments, scripts, or URLs.
+- Use only the normalized plain-text body and metadata provided in ai.Input.
+- Read provider credentials and configuration from environment variables.
+- Never hard-code API keys or secrets.
+- Do not claim confirmed attacker identity.
+- Return AI output as an assessment only.
+- Keep risk score separate from AI confidence.
+- If the provider is unavailable, return status "failed" or "partial" with a structured failure.
+- If the provider returns invalid or incomplete output, reject it explicitly rather than fabricating values.
+- Validate confidence is between 0 and 1.
+- Keep supporting signals concise and tied to the supplied email content.
+- Include provider and model names in the response.
+
+Add focused tests using a fake/mock provider or HTTP test server. Test:
+
+- successful classification
+- confidence parsing and range validation
+- malformed provider response
+- provider timeout/error
+- no API key behavior
+- no raw attachment bytes being sent
+- no fabricated classification on failure
+
+Do not wire the analyzer into cmd/api/main.go yet unless explicitly requested.
+First make the adapter compile and pass:
+
+cd backend
+gofmt -w ./internal/ai
+go test ./...
+go build ./...
+
+Report:
+
+- files changed
+- provider/model used
+- required environment variables
+- sample successful AIAssessment JSON
+- test results
+
+AFTER THE ADAPTER
+
+After your friend completes this, the next integration step is to wire the
+concrete analyzer into cmd/api/main.go using:
+
+email.NewServiceWithAnalyzer(store, configuredAnalyzer)
+
+That wiring should remain a separate step so the provider configuration and
+failure behavior can be reviewed before enabling it in the live API.
