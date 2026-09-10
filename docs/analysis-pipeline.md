@@ -163,6 +163,43 @@ External enrichment should be cached where practical.
 
 Failures from external providers should not crash the entire analysis.
 
+### 6.1 Passive IP enrichment interpretation
+
+Passive IP enrichment is contextual `ENRICHED` data, not proof about a sender
+or attacker. Country, region, city, latitude/longitude, ASN, ISP/organization,
+and hosting-provider fields are IP-derived estimates or provider assertions.
+They do not identify a person, prove a sender's physical location, prove
+maliciousness, or establish intent. A public IP, cloud ASN, or hosting provider
+is not suspicious solely because of its category.
+
+The enrichment stage uses these statuses:
+
+- `enriched`: a configured provider completed. It may return metadata or a
+  documented no-data result; no-data is represented as `data_available: false`,
+  not as clean or benign.
+- `not_applicable`: the address is not eligible for lookup (for example,
+  private, loopback, link-local, or documentation space). The provider did not
+  run.
+- `not_configured`: no provider was configured, so it did not run.
+- `failed`: an eligible lookup was attempted but timed out or failed.
+- `partial`: the provider returned usable but incomplete or conflicting
+  documented fields.
+
+`not_configured`, `not_applicable`, no-data, and `failed` never imply benign;
+`failed` or `partial` may make an otherwise usable overall analysis `partial`.
+Provider name, retrieval timestamp, provider confidence, and narrow,
+documented fields are retained as safe evidence metadata. Raw provider
+responses and unverified provider claims are not returned or logged.
+
+When a documented provider explicitly reports an abuse/reputation observation,
+the deterministic engine may add one bounded `ENRICHMENT_PROVIDER_ABUSE_REPORTED`
+signal with `ENRICHED` provenance and a stable enrichment evidence reference.
+Provider availability and low provider confidence are zero-point context or
+confidence-limiting signals, not threat proof. Country, city, coordinates, ASN,
+ISP, hosting/cloud classification, and public-IP status receive no risk points.
+The detailed behavior and test matrix are in
+[`enrichment-evaluation.md`](enrichment-evaluation.md).
+
 8. Stage 7 — AI Intent Analysis
 
 Analyze the semantic content of the email.
@@ -237,6 +274,13 @@ Supporting signals
 Explanation or evidence references where possible
 
 AI output is an assessment, not ground truth.
+
+IP enrichment is not currently included in `ai.Input`; Gemini therefore does
+not receive geolocation, ASN, hosting, or reputation metadata. The future
+enrichment and risk stages use it separately. If this contract is deliberately
+expanded, supplied enrichment must be labeled `ENRICHED`, include provider and
+retrieval time, and explicitly remain non-identity, non-location-proof, and
+non-maliciousness-proof context.
 
 9. Stage 8 — Risk Engine
 
