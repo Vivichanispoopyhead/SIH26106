@@ -11,8 +11,8 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  min-height: 270px;
-  background: rgba(8, 52, 83, 0.9);
+  min-height: 230px;
+  background: var(--surface-secondary);
   border: 1px solid var(--border-standard);
   border-radius: var(--radius-md);
   padding: 34px 24px;
@@ -42,7 +42,7 @@
   height: 66px;
   color: var(--accent-cyan-hover);
   border: 1px solid var(--accent-cyan);
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,7 +89,7 @@
   color: var(--text-secondary);
   background-color: rgba(3, 24, 41, 0.35);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-badge);
+  border-radius: var(--radius-sm);
   padding: 3px 8px;
 }
 

@@ -1,7 +1,7 @@
 .parsed-workspace-container {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 22px;
   width: 100%;
 }
 
@@ -35,7 +35,7 @@
 }
 
 .triage-subject {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.01em;
@@ -67,7 +67,7 @@
   color: var(--text-primary);
   background-color: var(--surface-secondary);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-badge);
+  border-radius: var(--radius-sm);
   padding: 2px 6px;
 }
 
@@ -101,7 +101,7 @@
   color: var(--verdict-clean);
   background-color: rgba(50, 196, 141, 0.12);
   border: 1px solid var(--verdict-clean);
-  border-radius: var(--radius-badge);
+  border-radius: var(--radius-sm);
   padding: 3px 8px;
 }
 
@@ -153,7 +153,7 @@
   color: var(--text-secondary);
   background: transparent;
   padding: 8px 4px;
-  margin-right: 22px;
+  margin-right: 16px;
   border-bottom: 1px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;
@@ -172,7 +172,7 @@
 .workspace-content {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 22px;
 }
 
 .workspace-section {

@@ -3,9 +3,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background-color: rgba(7, 34, 56, 0.96);
+  background-color: var(--surface-primary);
   border-bottom: 1px solid var(--border-standard);
-  padding: 13px 28px;
+  padding: 11px clamp(18px, 3vw, 32px);
   width: 100%;
   flex-wrap: wrap;
 }
@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: rgba(11, 53, 84, 0.8);
+  background-color: var(--surface-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 3px 8px;

@@ -6,7 +6,7 @@
 .panel-disclaimer { color: var(--text-muted); border-left: 2px solid var(--accent-cyan); padding-left: 10px; font-size: 11px; margin: 0; }
 .timeline-list { list-style: none; padding: 0 0 0 18px; margin: 0; border-left: 1px solid var(--border-standard); display: flex; flex-direction: column; gap: 12px; }
 .timeline-event { position: relative; display: flex; gap: 12px; }
-.timeline-marker { position: absolute; left: -24px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-cyan); border: 2px solid var(--surface-primary); box-shadow: 0 0 0 1px var(--accent-cyan); }
+.timeline-marker { position: absolute; left: -24px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-cyan); border: 2px solid var(--surface-primary); }
 .timeline-event-body { flex: 1; min-width: 0; }
 .timeline-event-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .timeline-event-topline strong { color: var(--text-primary); font-size: 13px; }
@@ -25,8 +25,9 @@
 .graph-node-card code { font-family: var(--font-mono); font-size: 10px; color: var(--accent-cyan); }
 .graph-node-card-top { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
 .forensic-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.forensic-table th { color: var(--text-muted); text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 8px; border-bottom: 1px solid var(--border-standard); }
+.forensic-table th { color: var(--text-muted); text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 8px; border-bottom: 1px solid var(--border-standard); font-weight: 500; }
 .forensic-table td { color: var(--text-secondary); padding: 9px 8px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.forensic-table tbody tr:hover { background: var(--surface-secondary); }
 .forensic-table code { font-family: var(--font-mono); color: var(--text-primary); }
 .enrichment-status, .report-status { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; padding: 3px 6px; border-radius: var(--radius-badge); border: 1px solid var(--border-standard); }
 .status-enriched { color: var(--epistemic-enriched); }
@@ -36,7 +37,8 @@
 .status-completed { color: var(--verdict-clean); }
 .status-partial { color: var(--verdict-warning); }
 .report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.forensic-button { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-cyan); color: var(--bg-canvas); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.forensic-button { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-cyan); color: var(--bg-canvas); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.forensic-button:hover:not(:disabled) { background: var(--accent-cyan-hover); border-color: var(--accent-cyan-hover); }
 .forensic-button.secondary { background: var(--surface-secondary); color: var(--text-primary); border-color: var(--border-standard); }
 .forensic-button:disabled { opacity: .55; cursor: wait; }
 .report-summary { display: flex; flex-direction: column; gap: 14px; }

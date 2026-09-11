@@ -3,7 +3,7 @@
   flex: 0 0 224px;
   min-height: 100%;
   padding: 20px 12px;
-  background: rgba(7, 43, 70, 0.96);
+  background: var(--surface-primary);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  background: rgba(19, 184, 237, 0.9);
+  background: var(--accent-cyan);
   color: #031522;
   border: 1px solid var(--accent-cyan);
   border-radius: var(--radius-sm);
@@ -83,7 +83,7 @@
 
 .stage-item.active {
   color: var(--text-primary);
-  background: rgba(19, 184, 237, 0.1);
+  background: var(--accent-cyan-tint);
   border-left-color: var(--accent-cyan);
 }
 
@@ -129,7 +129,7 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: 50%;
+  border-radius: 3px;
   color: var(--accent-cyan);
   font-family: var(--font-mono);
   font-size: 10px;
