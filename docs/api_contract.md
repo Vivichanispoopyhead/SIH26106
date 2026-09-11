@@ -1262,3 +1262,23 @@ Parse failures return structured errors.
 Failed artifacts remain preserved.
 Frontend and backend use the same field names and types.
 Relevant backend and frontend tests pass.
+### GET `/api/cases/{case_id}/report.pdf`
+
+Downloads the same canonical, sanitized forensic report returned by
+`GET /api/cases/{case_id}/report`, rendered as a PDF. The response is an
+attachment with `Content-Type: application/pdf` and a safe
+`Content-Disposition: attachment; filename="<safe-report-name>.pdf"` header.
+Missing cases return `404 CASE_NOT_FOUND`; cases without completed or partial
+analysis return `404 REPORT_NOT_AVAILABLE`; renderer failures return
+`500 REPORT_PDF_FAILED` using the standard structured error shape.
+
+The PDF includes the report identity and case metadata, executive summary,
+risk/verdict/confidence, SPF/DKIM/DMARC, message metadata, indicators,
+received-chain timeline, IP enrichment and provider status, AI assessment,
+evidence and provenance, entity graph summary, limitations, and safety
+disclaimers. It excludes raw `.eml` bytes, raw attachment contents,
+credentials/secrets/API keys, provider prompts, and executable content.
+Generation is deterministic from persisted report data only: it does not visit
+URLs, execute attachments, or perform external enrichment. User-controlled
+values are sanitized by the existing report redaction pipeline and escaped by
+the PDF library; filenames are restricted to safe characters.

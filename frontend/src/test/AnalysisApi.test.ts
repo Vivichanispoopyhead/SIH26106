@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getAnalysis, getFriendlyErrorMessage, ApiError, getCaseGraph, getCaseTimeline, createCaseReport, getCaseReport } from '../services/api';
+import { getAnalysis, getFriendlyErrorMessage, ApiError, getCaseGraph, getCaseTimeline, createCaseReport, getCaseReport, downloadCaseReportPDF } from '../services/api';
 
 describe('Analysis API Client (getAnalysis)', () => {
   beforeEach(() => {
@@ -180,5 +180,22 @@ describe('Case investigation API clients', () => {
   it('maps a missing case to CASE_NOT_FOUND', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: { code: 'CASE_NOT_FOUND', message: 'missing' } }) }));
     await expect(getCaseGraph('missing')).rejects.toMatchObject({ code: 'CASE_NOT_FOUND', status: 404 });
+  });
+
+  it('downloads a PDF blob using the case report endpoint and safe filename', async () => {
+    const blob = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'Content-Disposition': 'attachment; filename="../case report.pdf"' }),
+      blob: async () => blob,
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await expect(downloadCaseReportPDF('case/1')).resolves.toMatchObject({ blob, filename: '.._case_report.pdf' });
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/cases/case%2F1/report.pdf'),
+      expect.objectContaining({ method: 'GET', headers: { Accept: 'application/pdf' } })
+    );
   });
 });

@@ -3,13 +3,16 @@ package httpapi
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"sih26106/backend/internal/domain"
 	"sih26106/backend/internal/email"
 	"sih26106/backend/internal/persistence"
+	reportgen "sih26106/backend/internal/report"
 )
 
 type emailHandler struct{ service *email.Service }
@@ -171,6 +174,45 @@ func (h emailHandler) createReport(w http.ResponseWriter, r *http.Request) {
 func (h emailHandler) getReport(w http.ResponseWriter, r *http.Request) {
 	report, err := h.service.GetReport(r.Context(), chi.URLParam(r, "case_id"))
 	handleReportResult(w, report, err)
+}
+
+func (h emailHandler) getReportPDF(w http.ResponseWriter, r *http.Request) {
+	report, err := h.service.GetReport(r.Context(), chi.URLParam(r, "case_id"))
+	if err != nil {
+		handleReportResult(w, nil, err)
+		return
+	}
+	content, err := reportgen.PDF(report)
+	if err != nil {
+		slog.Default().Error("PDF report generation failed", "case_id", chi.URLParam(r, "case_id"), "error", err.Error())
+		writeError(w, http.StatusInternalServerError, "REPORT_PDF_FAILED", "The PDF report could not be generated.")
+		return
+	}
+	filename := safeReportFilename(report.ReportID)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`.pdf"`)
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(content); err != nil {
+		slog.Default().Debug("PDF report response write failed", "error", err.Error())
+	}
+}
+
+func safeReportFilename(reportID string) string {
+	value := strings.TrimSpace(reportID)
+	value = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			return r
+		}
+		return '_'
+	}, value)
+	value = strings.Trim(value, "._")
+	if value == "" {
+		return "forensic-report"
+	}
+	if len(value) > 120 {
+		value = value[:120]
+	}
+	return value
 }
 
 func handleReportResult(w http.ResponseWriter, report any, err error) {

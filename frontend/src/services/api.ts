@@ -522,6 +522,49 @@ export async function getCaseReport(caseId: string, baseUrl: string = API_BASE_U
   return normalizeReport(data);
 }
 
+export interface CaseReportPDF {
+  blob: Blob;
+  filename: string;
+}
+
+function safeDownloadFilename(value: string | null): string {
+  const candidate = value?.replace(/^["']|["']$/g, '').trim() || 'forensic-report.pdf';
+  const filename = candidate.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+}
+
+export async function downloadCaseReportPDF(caseId: string, baseUrl: string = API_BASE_URL): Promise<CaseReportPDF> {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${normalizedBase}/api/cases/${encodeURIComponent(caseId)}/report.pdf`;
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method: 'GET', headers: { Accept: 'application/pdf' } });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Connection failed';
+    throw new ApiError(`Unable to connect to backend at ${endpoint}: ${reason}`, 'CONNECTION_REFUSED');
+  }
+  if (!response.ok) {
+    let errorCode: string | undefined;
+    let errorMessage: string | undefined;
+    try {
+      const body = (await response.json()) as ApiErrorBody;
+      errorCode = body?.error?.code;
+      errorMessage = body?.error?.message;
+    } catch {
+      // Preserve the documented fallback when the server did not return JSON.
+    }
+    throw new ApiError(errorMessage || `PDF report request failed with status ${response.status}`, errorCode || (response.status === 404 ? 'REPORT_NOT_AVAILABLE' : 'INTERNAL_ERROR'), response.status);
+  }
+  try {
+    return {
+      blob: await response.blob(),
+      filename: safeDownloadFilename(response.headers.get('Content-Disposition')?.match(/filename\*?=(?:UTF-8'')?([^;]+)/i)?.[1] ?? null),
+    };
+  } catch {
+    throw new ApiError('Backend returned an unreadable PDF report.', 'MALFORMED_RESPONSE', response.status);
+  }
+}
+
 export async function createCaseReport(caseId: string, baseUrl: string = API_BASE_URL): Promise<ForensicReport> {
   const data = await fetchCaseResource<ForensicReport>(caseId, 'report', baseUrl, 'POST');
   if (!data || !Array.isArray(data.analyses) || !Array.isArray(data.limitations)) {

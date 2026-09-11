@@ -11,6 +11,7 @@ import {
   getCaseTimeline,
   getCaseReport,
   createCaseReport,
+  downloadCaseReportPDF,
   ApiError,
 } from './services/api';
 import { API_BASE_URL } from './config/env';
@@ -25,6 +26,8 @@ import { WorkspaceErrorBoundary } from './components/states/WorkspaceErrorBounda
 import { ParsedEmailWorkspace } from './components/investigation/ParsedEmailWorkspace';
 import { MailSearch } from 'lucide-react';
 import './App.css';
+import { LandingPage } from './components/marketing/LandingPage';
+import { LoginPage } from './components/auth/LoginPage';
 
 type BackendStatus = 'checking' | 'online' | 'error';
 
@@ -215,6 +218,11 @@ export const App: React.FC = () => {
     } catch (err) { setReportError(err); } finally { setReportLoading(false); }
   }, [caseId]);
 
+  const handleDownloadReportPDF = useCallback(() => {
+    if (!caseId) return Promise.reject(new ApiError('No case is selected.', 'CASE_NOT_FOUND'));
+    return downloadCaseReportPDF(caseId);
+  }, [caseId]);
+
   const handleRetry = () => {
     if (currentFile) {
       handleFileSelected(currentFile);
@@ -403,6 +411,7 @@ export const App: React.FC = () => {
               reportLoading={reportLoading}
               reportError={reportError}
               onGenerateReport={handleGenerateReport}
+              onDownloadReportPDF={handleDownloadReportPDF}
               />
             </WorkspaceErrorBoundary>
           </section>
@@ -414,6 +423,18 @@ export const App: React.FC = () => {
       <AppFooter apiBaseUrl={API_BASE_URL} />
     </div>
   );
+};
+
+export const RootApp: React.FC = () => {
+  const [screen, setScreen] = useState<'home' | 'login' | 'investigation'>('home');
+
+  if (screen === 'home') {
+    return <LandingPage onGetStarted={() => setScreen('login')} onSignIn={() => setScreen('login')} />;
+  }
+  if (screen === 'login') {
+    return <LoginPage onBack={() => setScreen('home')} onAuthenticated={() => setScreen('investigation')} />;
+  }
+  return <App />;
 };
 
 export default App;

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import {
   CaseGraphResponse,
@@ -166,10 +166,13 @@ export const EnrichmentPanel: React.FC<EnrichmentPanelProps> = ({ values, loadin
 export interface ReportPanelProps extends AsyncState {
   data?: ForensicReport | null;
   onGenerate: () => void;
+  onDownloadPDF?: () => Promise<{ blob: Blob; filename: string }>;
 }
 
-export const ReportPanel: React.FC<ReportPanelProps> = ({ data, loading, error, onGenerate }) => {
+export const ReportPanel: React.FC<ReportPanelProps> = ({ data, loading, error, onGenerate, onDownloadPDF }) => {
   const normalizedReport = useMemo(() => data ? normalizeReport(data) : null, [data]);
+  const [pdfLoading, setPDFLoading] = useState(false);
+  const [pdfError, setPDFError] = useState<unknown | null>(null);
   const downloadReport = () => {
     if (!normalizedReport) return;
     const blob = new Blob([JSON.stringify(normalizedReport, null, 2)], { type: 'application/json' });
@@ -180,13 +183,33 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ data, loading, error, 
     anchor.click();
     URL.revokeObjectURL(objectUrl);
   };
+  const downloadPDF = async () => {
+    if (!onDownloadPDF) return;
+    setPDFLoading(true);
+    setPDFError(null);
+    try {
+      const { blob, filename } = await onDownloadPDF();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setPDFError(err);
+    } finally {
+      setPDFLoading(false);
+    }
+  };
+  const safeLimitations = normalizedReport?.limitations.map((limitation) => String(limitation)) ?? [];
   return (
     <section className="forensic-panel" data-testid="report-panel">
-      <div className="forensic-panel-header"><div><span className="section-eyebrow">Case conclusion</span><h3>Forensic report</h3></div><div className="report-actions"><button type="button" className="forensic-button" onClick={onGenerate} disabled={loading}><RefreshCw size={14} /> {normalizedReport ? 'Refresh report' : 'Generate report'}</button>{normalizedReport && <button type="button" className="forensic-button secondary" onClick={downloadReport}><Download size={14} /> Download JSON</button>}</div></div>
+      <div className="forensic-panel-header"><div><span className="section-eyebrow">Case conclusion</span><h3>Forensic report</h3></div><div className="report-actions"><button type="button" className="forensic-button" onClick={onGenerate} disabled={loading}><RefreshCw size={14} /> {normalizedReport ? 'Refresh report' : 'Generate report'}</button>{normalizedReport && <><button type="button" className="forensic-button secondary" onClick={downloadReport}><Download size={14} /> Download JSON</button>{onDownloadPDF && <button type="button" className="forensic-button secondary" onClick={downloadPDF} disabled={pdfLoading}><Download size={14} /> {pdfLoading ? 'Preparing PDF…' : 'Download PDF'}</button>}</>}</div></div>
       {loading && <p className="panel-state">Generating the safe structured report…</p>}
       {!loading && error !== null && error !== undefined && <ErrorBanner error={error} />}
+      {!loading && pdfError !== null && pdfError !== undefined && <ErrorBanner error={pdfError} />}
       {!loading && !error && !normalizedReport && <p className="panel-state">Generate a report after analysis completes.</p>}
-      {!loading && !error && normalizedReport && <div className="report-summary"><div className="report-status-row"><span className={`report-status status-${normalizedReport.status}`}>{normalizedReport.status}</span><code>schema {normalizedReport.schema_version}</code><code>{normalizedReport.generated_at}</code></div><div className="report-metrics"><div><span>Risk</span><strong>{normalizedReport.analyses[0]?.risk.score ?? '—'}</strong></div><div><span>Verdict</span><strong>{normalizedReport.analyses[0]?.risk.verdict ?? 'unknown'}</strong></div><div><span>Evidence</span><strong>{normalizedReport.evidence.length}</strong></div><div><span>Timeline</span><strong>{normalizedReport.timeline.length}</strong></div><div><span>Graph nodes</span><strong>{normalizedReport.graph.node_count}</strong></div></div>{normalizedReport.limitations.length > 0 && <div className="report-limitations"><strong>Limitations</strong><ul>{normalizedReport.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></div>}<p className="panel-disclaimer">AI output is an evaluated assessment, not ground truth. URLs were not automatically visited and attachments were not executed.</p></div>}
+      {!loading && !error && normalizedReport && <div className="report-summary"><div className="report-status-row"><span className={`report-status status-${normalizedReport.status}`}>{normalizedReport.status}</span><code>schema {normalizedReport.schema_version}</code><code>{normalizedReport.generated_at}</code></div><div className="report-metrics"><div><span>Risk</span><strong>{normalizedReport.analyses[0]?.risk.score ?? '—'}</strong></div><div><span>Verdict</span><strong>{normalizedReport.analyses[0]?.risk.verdict ?? 'unknown'}</strong></div><div><span>Evidence</span><strong>{normalizedReport.evidence.length}</strong></div><div><span>Timeline</span><strong>{normalizedReport.timeline.length}</strong></div><div><span>Graph nodes</span><strong>{normalizedReport.graph.node_count}</strong></div></div>{safeLimitations.length > 0 && <div className="report-limitations"><strong>Limitations</strong><ul>{safeLimitations.map((limitation, index) => <li key={`${index}-${limitation}`}>{limitation}</li>)}</ul></div>}<p className="panel-disclaimer">AI output is an evaluated assessment, not ground truth. URLs were not automatically visited and attachments were not executed.</p></div>}
     </section>
   );
 };

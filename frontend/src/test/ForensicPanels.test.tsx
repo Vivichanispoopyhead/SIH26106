@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { EnrichmentPanel, GraphPanel, ReportPanel, TimelinePanel } from '../components/investigation/ForensicPanels';
 
@@ -29,8 +29,9 @@ describe('forensic investigation panels', () => {
   });
 
   it('renders report limitations and safe report controls', () => {
-    render(<ReportPanel data={{ report_id: 'report:case-1:analysis-1', schema_version: '1.0', case: { id: 'case-1', status: 'created', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }, generated_at: '2026-01-01T00:00:00Z', status: 'partial', emails: [], analyses: [], evidence: [], graph: { node_count: 0, edge_count: 0, node_types: {}, node_ids: [], edge_ids: [] }, timeline: [], limitations: ['AI output is an evaluated assessment, not ground truth.'] }} onGenerate={() => undefined} />);
+    render(<ReportPanel data={{ report_id: 'report:case-1:analysis-1', schema_version: '1.0', case: { id: 'case-1', status: 'created', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }, generated_at: '2026-01-01T00:00:00Z', status: 'partial', emails: [], analyses: [], evidence: [], graph: { node_count: 0, edge_count: 0, node_types: {}, node_ids: [], edge_ids: [] }, timeline: [], limitations: ['AI output is an evaluated assessment, not ground truth.'] }} onGenerate={() => undefined} onDownloadPDF={vi.fn()} />);
     expect(screen.getByTestId('report-panel')).toHaveTextContent('AI output is an evaluated assessment, not ground truth.');
     expect(screen.getByRole('button', { name: /Download JSON/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Download PDF/i })).toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/jackc/pgx/v5 v5.8.0
+	github.com/phpdave11/gofpdf v1.4.2
 )
 
 require (

@@ -42,6 +42,7 @@ export interface ParsedEmailWorkspaceProps {
   reportLoading?: boolean;
   reportError?: unknown | null;
   onGenerateReport?: () => void;
+  onDownloadReportPDF?: () => Promise<{ blob: Blob; filename: string }>;
 }
 
 export type WorkspaceView =
@@ -76,6 +77,7 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
   reportLoading,
   reportError,
   onGenerateReport,
+  onDownloadReportPDF,
 }) => {
   const [activeView, setActiveView] = useState<WorkspaceView>('all');
   const [selectedSignalCode, setSelectedSignalCode] = useState<string | null>(null);
@@ -431,7 +433,7 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
         )}
 
         {(activeView === 'all' || activeView === 'report') && (
-          <ReportPanel data={reportData} loading={reportLoading} error={reportError} onGenerate={onGenerateReport ?? (() => undefined)} />
+          <ReportPanel data={reportData} loading={reportLoading} error={reportError} onGenerate={onGenerateReport ?? (() => undefined)} onDownloadPDF={onDownloadReportPDF} />
         )}
 
         {/* Pipeline Progression Notice */}
