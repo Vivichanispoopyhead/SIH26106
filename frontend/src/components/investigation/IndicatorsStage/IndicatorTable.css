@@ -120,3 +120,22 @@
   font-size: 12px;
   padding: 12px 0;
 }
+
+.btn-inspect-ioc {
+  background: transparent;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-sm);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-inspect-ioc:hover {
+  background-color: var(--accent-cyan);
+  color: var(--bg-canvas);
+  border-color: var(--accent-cyan);
+}

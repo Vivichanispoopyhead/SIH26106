@@ -6,9 +6,10 @@ import './HeaderTable.css';
 
 interface HeaderTableProps {
   headers?: HeaderEntry[];
+  onSelectHeader?: (headerName: string) => void;
 }
 
-export const HeaderTable: React.FC<HeaderTableProps> = ({ headers = [] }) => {
+export const HeaderTable: React.FC<HeaderTableProps> = ({ headers = [], onSelectHeader }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Headers must preserve their source email order
@@ -83,6 +84,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({ headers = [] }) => {
                 <th className="col-order">#</th>
                 <th className="col-name">Header Field</th>
                 <th className="col-value">Value</th>
+                {onSelectHeader && <th style={{ width: '100px' }}>Evidence</th>}
               </tr>
             </thead>
             <tbody>
@@ -99,6 +101,19 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({ headers = [] }) => {
                   <td className="col-value">
                     <MonoValue value={header.value} label={header.name} copyable={true} />
                   </td>
+                  {onSelectHeader && (
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-inspect-header"
+                        onClick={() => onSelectHeader(header.name)}
+                        data-testid={`inspect-header-${header.name}`}
+                        title={`Find evidence matching header ${header.name}`}
+                      >
+                        Evidence ↗
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -4,9 +4,14 @@ import {
   StartAnalysisResponse,
   ParsedEmailResponse,
   EmailAnalysisResponse,
+  EmailEvidenceResponse,
+  CaseGraphResponse,
+  CaseTimelineResponse,
+  ForensicReport,
   ApiErrorBody,
   ApiErrorCode,
 } from '../types/api';
+import { normalizeAnalysis, normalizeEmail, normalizeEvidence, normalizeGraph, normalizeReport, normalizeTimeline } from './normalize';
 
 export interface HealthResponse {
   status: string;
@@ -78,6 +83,12 @@ export function getFriendlyErrorMessage(err: unknown): { title: string; message:
         return {
           title: 'Analysis Not Found',
           message: 'No analysis has been initialized for this email artifact.',
+          code,
+        };
+      case 'EVIDENCE_NOT_FOUND':
+        return {
+          title: 'Evidence Not Found',
+          message: 'No evidence records could be found for this email artifact.',
           code,
         };
       case 'AI_NOT_CONFIGURED':
@@ -301,7 +312,7 @@ export async function getEmail(
   }
 
   try {
-    return (await response.json()) as ParsedEmailResponse;
+    return normalizeEmail(await response.json());
   } catch {
     throw new ApiError('Backend returned malformed non-JSON data when fetching parsed email.', 'MALFORMED_RESPONSE', response.status);
   }
@@ -350,17 +361,142 @@ export async function getAnalysis(
   }
 
   try {
-    const data = await response.json();
-    if (!data || typeof data !== 'object' || !data.ai_assessment) {
+    const raw = await response.json();
+    if (!raw || typeof raw !== 'object' || !('ai_assessment' in raw)) {
       throw new Error('Malformed response: missing ai_assessment structure');
     }
-    return data as EmailAnalysisResponse;
+    return normalizeAnalysis(raw);
   } catch (err) {
     if (err instanceof ApiError) {
       throw err;
     }
     throw new ApiError('Backend returned malformed non-JSON data when fetching analysis.', 'MALFORMED_RESPONSE', response.status);
   }
+}
+
+/**
+ * Fetch email evidence: GET /api/emails/{email_id}/evidence
+ */
+export async function getEmailEvidence(
+  emailId: string,
+  baseUrl: string = API_BASE_URL
+): Promise<EmailEvidenceResponse> {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${normalizedBase}/api/emails/${encodeURIComponent(emailId)}/evidence`;
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Connection failed';
+    throw new ApiError(`Unable to connect to backend at ${endpoint}: ${reason}`, 'CONNECTION_REFUSED');
+  }
+
+  if (!response.ok) {
+    let errorCode: string | undefined;
+    let errorMessage: string | undefined;
+
+    try {
+      const body = (await response.json()) as ApiErrorBody;
+      errorCode = body?.error?.code;
+      errorMessage = body?.error?.message;
+    } catch {
+      // response is not JSON
+    }
+
+    throw new ApiError(
+      errorMessage || `Fetch evidence failed with status ${response.status}`,
+      errorCode || (response.status === 404 ? 'EVIDENCE_NOT_FOUND' : 'INTERNAL_ERROR'),
+      response.status
+    );
+  }
+
+  try {
+    const data = normalizeEvidence(await response.json());
+    if (!data || typeof data !== 'object' || !Array.isArray(data.evidence)) {
+      throw new Error('Malformed response: missing evidence array');
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    throw new ApiError('Backend returned malformed non-JSON data when fetching evidence.', 'MALFORMED_RESPONSE', response.status);
+  }
+}
+
+async function fetchCaseResource<T>(
+  caseId: string,
+  path: 'graph' | 'timeline' | 'report',
+  baseUrl: string,
+  method: 'GET' | 'POST' = 'GET',
+): Promise<T> {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const endpoint = `${normalizedBase}/api/cases/${encodeURIComponent(caseId)}/${path}`;
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { method, headers: { Accept: 'application/json' } });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Connection failed';
+    throw new ApiError(`Unable to connect to backend at ${endpoint}: ${reason}`, 'CONNECTION_REFUSED');
+  }
+  if (!response.ok) {
+    let errorCode: string | undefined;
+    let errorMessage: string | undefined;
+    try {
+      const body = (await response.json()) as ApiErrorBody;
+      errorCode = body?.error?.code;
+      errorMessage = body?.error?.message;
+    } catch {
+      // Preserve the documented fallback code when the server did not return JSON.
+    }
+    const fallback = response.status === 404
+      ? path === 'graph' ? 'GRAPH_NOT_AVAILABLE' : path === 'timeline' ? 'TIMELINE_NOT_AVAILABLE' : 'REPORT_NOT_AVAILABLE'
+      : 'INTERNAL_ERROR';
+    throw new ApiError(errorMessage || `Case ${path} request failed with status ${response.status}`, errorCode || fallback, response.status);
+  }
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(`Backend returned malformed data for case ${path}.`, 'MALFORMED_RESPONSE', response.status);
+  }
+}
+
+export async function getCaseGraph(caseId: string, baseUrl: string = API_BASE_URL): Promise<CaseGraphResponse> {
+  const data = await fetchCaseResource<CaseGraphResponse>(caseId, 'graph', baseUrl);
+  if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+    throw new ApiError('Backend returned malformed graph data.', 'MALFORMED_RESPONSE');
+  }
+  return normalizeGraph(data);
+}
+
+export async function getCaseTimeline(caseId: string, baseUrl: string = API_BASE_URL): Promise<CaseTimelineResponse> {
+  const data = await fetchCaseResource<CaseTimelineResponse>(caseId, 'timeline', baseUrl);
+  if (!data || !Array.isArray(data.events)) {
+    throw new ApiError('Backend returned malformed timeline data.', 'MALFORMED_RESPONSE');
+  }
+  return normalizeTimeline(data);
+}
+
+export async function getCaseReport(caseId: string, baseUrl: string = API_BASE_URL): Promise<ForensicReport> {
+  const data = await fetchCaseResource<ForensicReport>(caseId, 'report', baseUrl);
+  if (!data || !Array.isArray(data.analyses) || !Array.isArray(data.limitations)) {
+    throw new ApiError('Backend returned malformed report data.', 'MALFORMED_RESPONSE');
+  }
+  return normalizeReport(data);
+}
+
+export async function createCaseReport(caseId: string, baseUrl: string = API_BASE_URL): Promise<ForensicReport> {
+  const data = await fetchCaseResource<ForensicReport>(caseId, 'report', baseUrl, 'POST');
+  if (!data || !Array.isArray(data.analyses) || !Array.isArray(data.limitations)) {
+    throw new ApiError('Backend returned malformed report data.', 'MALFORMED_RESPONSE');
+  }
+  return normalizeReport(data);
 }
 
 /**

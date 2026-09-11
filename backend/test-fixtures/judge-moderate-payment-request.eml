@@ -1,0 +1,24 @@
+From: Accounts Desk <accounts@billing-example.test>
+To: Finance Review <finance@example.org>
+Subject: Updated payment details for upcoming invoice
+Date: Thu, 10 Sep 2026 11:30:00 +0000
+Message-ID: <judge-moderate-payment-request@billing-example.test>
+Return-Path: <accounts@billing-example.test>
+Authentication-Results: mx.example.org; spf=neutral smtp.mailfrom=billing-example.test; dkim=none; dmarc=none
+Received: from relay.billing-example.test (relay.billing-example.test [198.51.100.24])
+	by mx.example.org with ESMTP; Thu, 10 Sep 2026 11:30:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+Hello Finance Team,
+
+Our billing department is reviewing the next service invoice. Please review
+the updated payment instructions in the secure document area:
+
+https://billing-example.test/invoice-review
+
+The request is time-sensitive because the invoice is due this week. Do not
+send payment information by email. If the request is unexpected, confirm it
+using a known company contact before making any change.
+
+Regards,
+Accounts Desk

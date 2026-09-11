@@ -1,0 +1,30 @@
+From: Executive Office <executive-office@lookalike-example.test>
+To: Finance Operations <finance@example.org>
+Subject: URGENT: confidential transfer required today
+Date: Thu, 10 Sep 2026 13:45:00 +0000
+Message-ID: <judge-dangerous-multi-signal@lookalike-example.test>
+Return-Path: <executive-office@lookalike-example.test>
+Authentication-Results: mx.example.org; spf=fail smtp.mailfrom=lookalike-example.test; dkim=fail header.d=lookalike-example.test; dmarc=fail header.from=lookalike-example.test
+Received: from unknown (unknown [203.0.113.77])
+	by mx.example.org with ESMTP; Thu, 10 Sep 2026 13:45:00 +0000
+Content-Type: multipart/mixed; boundary="judge-boundary"
+
+--judge-boundary
+Content-Type: text/plain; charset=utf-8
+
+I am traveling and cannot take calls. Process the confidential transfer
+immediately using the instructions at:
+
+https://secure-transfer-example.test/approval
+
+Keep this request confidential and do not verify it with the normal finance
+contact. The attached document contains the payment details.
+
+--judge-boundary
+Content-Type: application/octet-stream; name="payment-instructions.pdf.exe"
+Content-Disposition: attachment; filename="payment-instructions.pdf.exe"
+Content-Transfer-Encoding: base64
+
+VGhpcyBpcyBhIG5vbi1leGVjdXRhYmxlIHRlc3QgZml4dHVyZSBhdHRhY2htZW50Lg==
+
+--judge-boundary--

@@ -11,13 +11,13 @@ const stages = [
   { number: '01', label: 'Case overview', key: 'investigation' as const, available: true },
   { number: '02', label: 'Email message', key: 'investigation' as const, available: true },
   { number: '03', label: 'Headers & auth', key: 'investigation' as const, available: true },
-  { number: '04', label: 'Relay chain', key: 'investigation' as const, available: false },
+  { number: '04', label: 'Relay timeline', key: 'investigation' as const, available: true },
   { number: '05', label: 'Indicators', key: 'investigation' as const, available: true },
   { number: '06', label: 'AI assessment', key: 'investigation' as const, available: true },
-  { number: '07', label: 'Entity graph', key: 'investigation' as const, available: false },
-  { number: '08', label: 'Infrastructure map', key: 'investigation' as const, available: false },
-  { number: '09', label: 'Evidence vault', key: 'investigation' as const, available: false },
-  { number: '10', label: 'Report', key: 'investigation' as const, available: false },
+  { number: '07', label: 'Entity graph', key: 'investigation' as const, available: true },
+  { number: '08', label: 'Infrastructure', key: 'investigation' as const, available: true },
+  { number: '09', label: 'Evidence vault', key: 'investigation' as const, available: true },
+  { number: '10', label: 'Report', key: 'investigation' as const, available: true },
 ];
 
 export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStage, hasEmail, onNewAnalysis }) => (

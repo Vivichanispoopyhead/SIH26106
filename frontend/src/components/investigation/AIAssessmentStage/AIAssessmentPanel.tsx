@@ -8,6 +8,7 @@ export interface AIAssessmentPanelProps {
   analysisData?: EmailAnalysisResponse | null;
   isLoading?: boolean;
   error?: unknown | null;
+  onSelectEvidenceReference?: (ref: string) => void;
 }
 
 /**
@@ -26,6 +27,7 @@ export const AIAssessmentPanel: React.FC<AIAssessmentPanelProps> = ({
   analysisData,
   isLoading = false,
   error = null,
+  onSelectEvidenceReference,
 }) => {
   // 1. Loading State
   if (isLoading) {
@@ -340,11 +342,18 @@ export const AIAssessmentPanel: React.FC<AIAssessmentPanelProps> = ({
         {evidenceReferences.length > 0 ? (
           <div className="evidence-chips-grid" data-testid="ai-evidence-list">
             {evidenceReferences.map((ref, idx) => (
-              <div key={idx} className="evidence-chip" data-testid="ai-evidence-item">
+              <button
+                key={idx}
+                type="button"
+                className={`evidence-chip ${onSelectEvidenceReference ? 'clickable' : ''}`}
+                onClick={() => onSelectEvidenceReference?.(ref)}
+                data-testid="ai-evidence-item"
+                title={onSelectEvidenceReference ? `Jump to supporting evidence for ${ref}` : ref}
+              >
                 <span className="evidence-dot" aria-hidden="true">●</span>
                 <code className="evidence-ref-name">{ref}</code>
                 <ProvenanceBadge classification="OBSERVED" showIcon={false} className="mini-badge" />
-              </div>
+              </button>
             ))}
           </div>
         ) : (

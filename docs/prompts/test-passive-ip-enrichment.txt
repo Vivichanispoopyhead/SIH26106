@@ -1,0 +1,187 @@
+SIH26106 - Passive IP Enrichment Testing Guide
+
+1. RUN AUTOMATED BACKEND TESTS
+
+Open a terminal and run:
+
+cd /mnt/d/SIH/SIH26106/backend
+go test ./...
+go build ./...
+
+The enrichment tests cover:
+
+- Public IP success
+- Private/documentation IP rejection
+- Provider timeout
+- HTTP errors
+- Invalid JSON
+- Invalid provider values
+- Missing configuration
+- Partial enrichment failure
+- Persistence
+
+
+2. TEST WITHOUT AN ENRICHMENT PROVIDER
+
+Start local infrastructure:
+
+cd /mnt/d/SIH/SIH26106
+docker compose up -d postgres redis
+
+Load the local environment file:
+
+set -a
+source .env
+set +a
+
+Start the backend:
+
+cd backend
+go run ./cmd/api
+
+Keep this terminal running.
+
+
+3. UPLOAD A SAFE FIXTURE
+
+Open a second terminal from the repository root:
+
+cd /mnt/d/SIH/SIH26106
+
+Upload the safe fixture:
+
+curl -s -X POST http://localhost:8080/api/emails \
+  -F 'file=@backend/test-fixtures/judge-safe-business.eml' | jq
+
+Copy the returned email_id.
+
+Start analysis:
+
+curl -s -X POST \
+  http://localhost:8080/api/emails/<EMAIL_ID>/analysis | jq
+
+Replace <EMAIL_ID> with the actual ID returned by the upload request.
+
+Retrieve the canonical result:
+
+curl -s \
+  http://localhost:8080/api/emails/<EMAIL_ID>/analysis | jq
+
+Expected enrichment output:
+
+{
+  "ip_enrichment": [
+    {
+      "ip_address": "192.0.2.10",
+      "status": "not_applicable"
+    }
+  ]
+}
+
+The address 192.0.2.10 is a documentation IP. It must not be sent to an
+external enrichment provider.
+
+
+4. TEST ALL THREE JUDGE FIXTURES
+
+Run the same upload, analysis, and retrieval flow with:
+
+backend/test-fixtures/judge-safe-business.eml
+backend/test-fixtures/judge-moderate-payment-request.eml
+backend/test-fixtures/judge-dangerous-multi-signal.eml
+
+Expected behavior:
+
+SAFE:
+judge-safe-business.eml
+- Low risk
+- SPF, DKIM, and DMARC passing
+- Documentation IP marked not_applicable
+
+MODERATE:
+judge-moderate-payment-request.eml
+- Moderate risk
+- Payment-related indicators
+- Partial or not_configured enrichment when no provider is configured
+
+DANGEROUS:
+judge-dangerous-multi-signal.eml
+- High or critical risk
+- Failed SPF, DKIM, and DMARC
+- Suspicious URL
+- Executable-style double-extension attachment
+
+
+5. QUICK COMMAND TEMPLATE
+
+Replace <FIXTURE> with a fixture filename:
+
+UPLOAD_RESPONSE=$(curl -s -X POST http://localhost:8080/api/emails \
+  -F "file=@backend/test-fixtures/<FIXTURE>")
+
+echo "$UPLOAD_RESPONSE" | jq
+
+EMAIL_ID=$(echo "$UPLOAD_RESPONSE" | jq -r '.email_id')
+
+curl -s -X POST \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+curl -s \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+Example:
+
+UPLOAD_RESPONSE=$(curl -s -X POST http://localhost:8080/api/emails \
+  -F "file=@backend/test-fixtures/judge-dangerous-multi-signal.eml")
+
+EMAIL_ID=$(echo "$UPLOAD_RESPONSE" | jq -r '.email_id')
+
+curl -s -X POST \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+curl -s \
+  "http://localhost:8080/api/emails/$EMAIL_ID/analysis" | jq
+
+
+6. TESTING WITH A REAL PROVIDER
+
+The adapter reads these variables from .env:
+
+IP_ENRICHMENT_API_KEY=your-local-provider-key
+IP_ENRICHMENT_API_URL=https://provider.example/api/lookup
+IP_ENRICHMENT_PROVIDER=provider-name
+IP_ENRICHMENT_TIMEOUT=5s
+IP_ENRICHMENT_MAX_RESPONSE_BYTES=65536
+
+Do not commit a real API key.
+
+Do not use a real provider unless its response matches the backend schema:
+
+{
+  "ip_address": "8.8.8.8",
+  "country": "United States",
+  "region": "California",
+  "city": "Mountain View",
+  "latitude": 37.4056,
+  "longitude": -122.0775,
+  "asn": "AS15169",
+  "organization": "Example Provider",
+  "confidence": 0.85
+}
+
+The safest development validation is the existing Go test suite. It uses local
+mock HTTP servers and does not contact external services.
+
+
+7. WHAT TO CHECK IN THE RESULT
+
+Verify that:
+
+- ip_enrichment is present.
+- Documentation/private IPs are not sent externally.
+- Missing provider configuration is explicit.
+- Provider failures do not erase parsed email data.
+- AI failures do not erase enrichment results.
+- Risk score and confidence remain separate.
+- Geolocation is represented as enrichment, not confirmed identity.
+- No API keys or raw email content appear in logs.

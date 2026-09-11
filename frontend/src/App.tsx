@@ -6,16 +6,22 @@ import {
   startAnalysis,
   getEmail,
   getAnalysis,
+  getEmailEvidence,
+  getCaseGraph,
+  getCaseTimeline,
+  getCaseReport,
+  createCaseReport,
   ApiError,
 } from './services/api';
 import { API_BASE_URL } from './config/env';
-import { ParsedEmailResponse, EmailAnalysisResponse } from './types/api';
+import { CaseGraphResponse, CaseTimelineResponse, ForensicReport, ParsedEmailResponse, EmailAnalysisResponse, EmailEvidenceResponse } from './types/api';
 import { AppHeader } from './components/shell/AppHeader';
 import { AppFooter } from './components/shell/AppFooter';
 import { NavigationSidebar } from './components/shell/NavigationSidebar';
 import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
 import { LoadingStage, WorkflowState } from './components/states/LoadingStage';
 import { ErrorBanner } from './components/states/ErrorBanner';
+import { WorkspaceErrorBoundary } from './components/states/WorkspaceErrorBoundary';
 import { ParsedEmailWorkspace } from './components/investigation/ParsedEmailWorkspace';
 import { MailSearch } from 'lucide-react';
 import './App.css';
@@ -38,6 +44,18 @@ export const App: React.FC = () => {
   const [analysisData, setAnalysisData] = useState<EmailAnalysisResponse | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<unknown | null>(null);
+  const [evidenceData, setEvidenceData] = useState<EmailEvidenceResponse | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState<boolean>(false);
+  const [evidenceError, setEvidenceError] = useState<unknown | null>(null);
+  const [graphData, setGraphData] = useState<CaseGraphResponse | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState<unknown | null>(null);
+  const [timelineData, setTimelineData] = useState<CaseTimelineResponse | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<unknown | null>(null);
+  const [reportData, setReportData] = useState<ForensicReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<unknown | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<unknown | null>(null);
 
@@ -145,6 +163,26 @@ export const App: React.FC = () => {
         setAnalysisLoading(false);
       }
 
+      // Step 5: Fetch Supporting Evidence -> GET /api/emails/{email_id}/evidence
+      setEvidenceLoading(true);
+      try {
+        const evidenceResult = await getEmailEvidence(uploadRes.email_id);
+        setEvidenceData(evidenceResult);
+      } catch (evidenceErr) {
+        // Non-fatal: parsing and analysis remain fully functional
+        setEvidenceError(evidenceErr);
+      } finally {
+        setEvidenceLoading(false);
+      }
+
+      // Case-level investigation views are non-fatal extensions of the email workflow.
+      if (uploadRes.case_id) {
+        setGraphLoading(true);
+        setTimelineLoading(true);
+        try { setGraphData(await getCaseGraph(uploadRes.case_id)); } catch (graphErr) { setGraphError(graphErr); } finally { setGraphLoading(false); }
+        try { setTimelineData(await getCaseTimeline(uploadRes.case_id)); } catch (timelineErr) { setTimelineError(timelineErr); } finally { setTimelineLoading(false); }
+      }
+
       setWorkflowState('parsed');
     } catch (err) {
       pollingRef.current = false;
@@ -152,6 +190,30 @@ export const App: React.FC = () => {
       setWorkflowState('failed');
     }
   };
+
+  const handleRetryEvidence = useCallback(async () => {
+    if (!emailId) return;
+    setEvidenceLoading(true);
+    setEvidenceError(null);
+    try {
+      const evidenceResult = await getEmailEvidence(emailId);
+      setEvidenceData(evidenceResult);
+    } catch (err) {
+      setEvidenceError(err);
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }, [emailId]);
+
+  const handleGenerateReport = useCallback(async () => {
+    if (!caseId) return;
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      await createCaseReport(caseId);
+      setReportData(await getCaseReport(caseId));
+    } catch (err) { setReportError(err); } finally { setReportLoading(false); }
+  }, [caseId]);
 
   const handleRetry = () => {
     if (currentFile) {
@@ -171,6 +233,18 @@ export const App: React.FC = () => {
     setAnalysisData(null);
     setAnalysisLoading(false);
     setAnalysisError(null);
+    setEvidenceData(null);
+    setEvidenceLoading(false);
+    setEvidenceError(null);
+    setGraphData(null);
+    setGraphLoading(false);
+    setGraphError(null);
+    setTimelineData(null);
+    setTimelineLoading(false);
+    setTimelineError(null);
+    setReportData(null);
+    setReportLoading(false);
+    setReportError(null);
     setCurrentFile(null);
     setError(null);
   };
@@ -309,12 +383,28 @@ export const App: React.FC = () => {
 
         {workflowState === 'parsed' && parsedEmail && (
           <section className="workspace-stage-section">
-            <ParsedEmailWorkspace
+            <WorkspaceErrorBoundary>
+              <ParsedEmailWorkspace
               emailData={parsedEmail}
               analysisData={analysisData}
               analysisLoading={analysisLoading}
               analysisError={analysisError}
-            />
+              evidenceData={evidenceData}
+              evidenceLoading={evidenceLoading}
+              evidenceError={evidenceError}
+              onRetryEvidence={handleRetryEvidence}
+              graphData={graphData}
+              graphLoading={graphLoading}
+              graphError={graphError}
+              timelineData={timelineData}
+              timelineLoading={timelineLoading}
+              timelineError={timelineError}
+              reportData={reportData}
+              reportLoading={reportLoading}
+              reportError={reportError}
+              onGenerateReport={handleGenerateReport}
+              />
+            </WorkspaceErrorBoundary>
           </section>
         )}
         </main>

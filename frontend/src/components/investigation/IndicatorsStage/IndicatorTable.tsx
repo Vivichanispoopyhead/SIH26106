@@ -6,11 +6,12 @@ import './IndicatorTable.css';
 
 interface IndicatorTableProps {
   indicators?: IndicatorSet;
+  onSelectIndicator?: (value: string) => void;
 }
 
 type IndicatorTab = 'all' | 'ips' | 'domains' | 'urls';
 
-export const IndicatorTable: React.FC<IndicatorTableProps> = ({ indicators }) => {
+export const IndicatorTable: React.FC<IndicatorTableProps> = ({ indicators, onSelectIndicator }) => {
   const [activeTab, setActiveTab] = useState<IndicatorTab>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -136,6 +137,7 @@ export const IndicatorTable: React.FC<IndicatorTableProps> = ({ indicators }) =>
                 <th style={{ width: '90px' }}>Type</th>
                 <th>Indicator Value</th>
                 <th style={{ width: '130px' }}>Provenance</th>
+                {onSelectIndicator && <th style={{ width: '100px' }}>Evidence</th>}
               </tr>
             </thead>
             <tbody>
@@ -152,6 +154,19 @@ export const IndicatorTable: React.FC<IndicatorTableProps> = ({ indicators }) =>
                   <td>
                     <ProvenanceBadge classification="OBSERVED" showIcon={false} />
                   </td>
+                  {onSelectIndicator && (
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-inspect-ioc"
+                        onClick={() => onSelectIndicator(item.value)}
+                        data-testid={`inspect-ioc-${item.value}`}
+                        title={`Find evidence matching ${item.value}`}
+                      >
+                        Evidence ↗
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -74,6 +74,30 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
         });
       }
 
+      // GET /api/emails/{email_id}/evidence
+      if (url.endsWith('/evidence') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            email_id: 'email_01J_WORKFLOW_TEST',
+            evidence: [
+              {
+                evidence_id: 'evidence_01J_WORKFLOW_1',
+                type: 'header',
+                source: 'From',
+                value: 'origin@attacker.net',
+                snippet: 'From: origin@attacker.net',
+                provenance: 'OBSERVED',
+                header_order: 1,
+                related_signal_codes: ['SUSPICIOUS_SENDER'],
+                hash: null,
+              },
+            ],
+          }),
+        });
+      }
+
       // GET /api/emails/{email_id}
       if (url.includes('/api/emails/email_01J_WORKFLOW_TEST')) {
         return Promise.resolve({
@@ -203,6 +227,18 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
               failure: { code: 'AI_NOT_CONFIGURED', message: 'No AI analyzer configured' },
             },
             failure: null,
+          }),
+        });
+      }
+
+      // GET /api/emails/{email_id}/evidence
+      if (url.endsWith('/evidence') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            email_id: 'email_poll_1',
+            evidence: [],
           }),
         });
       }
@@ -436,6 +472,18 @@ describe('Vertical Slice #1 End-to-End Workflow', () => {
             headers: [],
             indicators: { ips: [], domains: [], urls: [] },
             attachments: [],
+          }),
+        });
+      }
+
+      // GET /api/emails/{email_id}/evidence (non-fatal 404)
+      if (url.endsWith('/evidence') && (!init?.method || init?.method === 'GET')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            email_id: 'email_retry_success',
+            evidence: [],
           }),
         });
       }

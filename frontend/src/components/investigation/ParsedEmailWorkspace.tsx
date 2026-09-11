@@ -1,31 +1,87 @@
 import React, { useState } from 'react';
-import { ParsedEmailResponse, EmailAnalysisResponse } from '../../types/api';
+import {
+  ParsedEmailResponse,
+  EmailAnalysisResponse,
+  EmailEvidenceResponse,
+  CaseGraphResponse,
+  CaseTimelineResponse,
+  ForensicReport,
+  EvidenceItem,
+  RiskSignal,
+} from '../../types/api';
+import { EpistemicClass } from '../../types/provenance';
 import { EmailHeaderCard } from './EmailStage/EmailHeaderCard';
 import { MimeSummaryCard } from './EmailStage/MimeSummaryCard';
 import { HeaderTable } from './HeadersStage/HeaderTable';
 import { IndicatorTable } from './IndicatorsStage/IndicatorTable';
 import { AttachmentList } from './EmailStage/AttachmentList';
 import { AIAssessmentPanel } from './AIAssessmentStage/AIAssessmentPanel';
+import { EvidencePanel } from './EvidenceStage/EvidencePanel';
+import { EvidenceDrawer } from './EvidenceStage/EvidenceDrawer';
+import { EnrichmentPanel, GraphPanel, ReportPanel, TimelinePanel } from './ForensicPanels';
 import { ProvenanceBadge } from '../common/ProvenanceBadge';
 import { MonoValue } from '../common/MonoValue';
 import './ParsedEmailWorkspace.css';
 
-interface ParsedEmailWorkspaceProps {
+export interface ParsedEmailWorkspaceProps {
   emailData: ParsedEmailResponse;
   analysisData?: EmailAnalysisResponse | null;
   analysisLoading?: boolean;
   analysisError?: unknown | null;
+  evidenceData?: EmailEvidenceResponse | null;
+  evidenceLoading?: boolean;
+  evidenceError?: unknown | null;
+  onRetryEvidence?: () => void;
+  graphData?: CaseGraphResponse | null;
+  graphLoading?: boolean;
+  graphError?: unknown | null;
+  timelineData?: CaseTimelineResponse | null;
+  timelineLoading?: boolean;
+  timelineError?: unknown | null;
+  reportData?: ForensicReport | null;
+  reportLoading?: boolean;
+  reportError?: unknown | null;
+  onGenerateReport?: () => void;
 }
 
-type WorkspaceView = 'all' | 'assessment' | 'metadata' | 'indicators' | 'headers' | 'attachments';
+export type WorkspaceView =
+  | 'all'
+  | 'assessment'
+  | 'evidence'
+  | 'metadata'
+  | 'indicators'
+  | 'headers'
+  | 'attachments'
+  | 'timeline'
+  | 'graph'
+  | 'enrichment'
+  | 'report';
 
 export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
   emailData,
   analysisData,
   analysisLoading,
   analysisError,
+  evidenceData,
+  evidenceLoading,
+  evidenceError,
+  onRetryEvidence,
+  graphData,
+  graphLoading,
+  graphError,
+  timelineData,
+  timelineLoading,
+  timelineError,
+  reportData,
+  reportLoading,
+  reportError,
+  onGenerateReport,
 }) => {
   const [activeView, setActiveView] = useState<WorkspaceView>('all');
+  const [selectedSignalCode, setSelectedSignalCode] = useState<string | null>(null);
+  const [selectedEvidenceQuery, setSelectedEvidenceQuery] = useState<string | null>(null);
+  const [drawerItem, setDrawerItem] = useState<EvidenceItem | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   const headerCount = emailData.headers?.length || 0;
   const indicatorCount =
@@ -33,9 +89,71 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
     (emailData.indicators?.domains?.length || 0) +
     (emailData.indicators?.urls?.length || 0);
   const attachmentCount = emailData.attachments?.length || 0;
+  const evidenceCount = evidenceData?.evidence?.length || 0;
+  const messageCount = (emailData.message?.from?.length || 0) + (emailData.message?.to?.length || 0);
 
   const hasAnalysis = analysisData !== undefined || analysisLoading || Boolean(analysisError);
-  const messageCount = (emailData.message?.from?.length || 0) + (emailData.message?.to?.length || 0);
+  const hasEvidence = evidenceData !== undefined || evidenceLoading || Boolean(evidenceError);
+  const riskSignals: RiskSignal[] = analysisData?.risk?.contributing_signals ?? [];
+
+  // Cross-navigation handlers
+  const handleSelectSignalCode = (code: string) => {
+    setSelectedSignalCode(code);
+    setSelectedEvidenceQuery(null);
+    if (activeView !== 'evidence' && activeView !== 'all') {
+      setActiveView('evidence');
+    }
+  };
+
+  const handleSelectEvidenceReference = (ref: string) => {
+    setSelectedEvidenceQuery(ref);
+    setSelectedSignalCode(null);
+    if (activeView !== 'evidence' && activeView !== 'all') {
+      setActiveView('evidence');
+    }
+    if (evidenceData?.evidence) {
+      const match = evidenceData.evidence.find(
+        (e) =>
+          e.evidence_id.toLowerCase() === ref.toLowerCase() ||
+          e.source.toLowerCase() === ref.toLowerCase()
+      );
+      if (match) {
+        setDrawerItem(match);
+        setIsDrawerOpen(true);
+      }
+    }
+  };
+
+  const handleSelectIndicator = (val: string) => {
+    setSelectedEvidenceQuery(val);
+    setSelectedSignalCode(null);
+    if (activeView !== 'evidence' && activeView !== 'all') {
+      setActiveView('evidence');
+    }
+  };
+
+  const handleSelectHeader = (headerName: string) => {
+    setSelectedEvidenceQuery(headerName);
+    setSelectedSignalCode(null);
+    if (activeView !== 'evidence' && activeView !== 'all') {
+      setActiveView('evidence');
+    }
+  };
+
+  const handleClearEvidenceFilter = () => {
+    setSelectedSignalCode(null);
+    setSelectedEvidenceQuery(null);
+  };
+
+  const handleOpenDrawer = (item: EvidenceItem) => {
+    setDrawerItem(item);
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+    setDrawerItem(null);
+  };
 
   return (
     <div className="parsed-workspace-container" data-testid="parsed-email-workspace">
@@ -80,6 +198,12 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
               <span className="summary-label">Envelope addresses</span>
               <strong>{messageCount}</strong>
             </div>
+            {evidenceData && (
+              <div className="workspace-summary-item" data-testid="summary-evidence-count">
+                <span className="summary-label">Evidence records</span>
+                <strong>{evidenceCount}</strong>
+              </div>
+            )}
           </div>
         </div>
 
@@ -96,6 +220,65 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Risk Assessment & Contributing Signals (Rendered when risk is provided) */}
+      {analysisData?.risk && (
+        <section className="risk-signals-card" data-testid="risk-signals-section">
+          <div className="risk-card-header">
+            <div className="risk-title-group">
+              <span className="section-eyebrow">Risk Engine Assessment</span>
+              <div className="risk-score-row">
+                <h3 className="risk-card-title">Threat Assessment</h3>
+                <span
+                  className={`risk-score-badge level-${analysisData.risk.level?.toLowerCase()}`}
+                  data-testid="risk-score-badge"
+                >
+                  Score: {analysisData.risk.score}/100 ({analysisData.risk.level?.toUpperCase()})
+                </span>
+                <span className="risk-verdict-pill" data-testid="risk-verdict-pill">
+                  Verdict: {analysisData.risk.verdict}
+                </span>
+              </div>
+            </div>
+            <ProvenanceBadge classification="INFERRED" />
+          </div>
+
+          {riskSignals.length > 0 ? (
+            <div className="contributing-signals-grid" data-testid="risk-signals-grid">
+              {riskSignals.map((sig) => (
+                <div key={sig.code} className="signal-card" data-testid={`risk-signal-${sig.code}`}>
+                  <div className="signal-top">
+                    <div className="signal-id-group">
+                      <code className="signal-code">⚡ {sig.code}</code>
+                      <span className="signal-points">+{sig.points} pts</span>
+                      <span className="signal-category-tag">{sig.category}</span>
+                    </div>
+                    <ProvenanceBadge
+                      classification={sig.provenance as EpistemicClass}
+                      showIcon={false}
+                      className="mini-badge"
+                    />
+                  </div>
+                  <p className="signal-description">{sig.description}</p>
+                  <button
+                    type="button"
+                    className="btn-signal-evidence"
+                    onClick={() => handleSelectSignalCode(sig.code)}
+                    data-testid={`signal-evidence-btn-${sig.code}`}
+                    title={`View evidence corroborating ${sig.code}`}
+                  >
+                    View Supporting Evidence →
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="no-signals-text" data-testid="no-signals-text">
+              No elevated risk signals triggered.
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Forensic Workspace Tabs */}
       <div className="workspace-tabs-bar" role="tablist">
@@ -118,6 +301,16 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
           data-testid="view-tab-assessment"
         >
           AI Assessment
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'evidence'}
+          className={`workspace-tab ${activeView === 'evidence' ? 'active' : ''}`}
+          onClick={() => setActiveView('evidence')}
+          data-testid="view-tab-evidence"
+        >
+          Evidence Vault ({evidenceCount})
         </button>
         <button
           type="button"
@@ -159,6 +352,10 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
         >
           Attachments ({attachmentCount})
         </button>
+        <button type="button" role="tab" aria-selected={activeView === 'timeline'} className={`workspace-tab ${activeView === 'timeline' ? 'active' : ''}`} onClick={() => setActiveView('timeline')} data-testid="view-tab-timeline">Relay Timeline</button>
+        <button type="button" role="tab" aria-selected={activeView === 'graph'} className={`workspace-tab ${activeView === 'graph' ? 'active' : ''}`} onClick={() => setActiveView('graph')} data-testid="view-tab-graph">Entity Graph</button>
+        <button type="button" role="tab" aria-selected={activeView === 'enrichment'} className={`workspace-tab ${activeView === 'enrichment' ? 'active' : ''}`} onClick={() => setActiveView('enrichment')} data-testid="view-tab-enrichment">Infrastructure</button>
+        <button type="button" role="tab" aria-selected={activeView === 'report'} className={`workspace-tab ${activeView === 'report' ? 'active' : ''}`} onClick={() => setActiveView('report')} data-testid="view-tab-report">Report</button>
       </div>
 
       {/* Structured Sections */}
@@ -169,6 +366,23 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
               analysisData={analysisData}
               isLoading={analysisLoading}
               error={analysisError}
+              onSelectEvidenceReference={handleSelectEvidenceReference}
+            />
+          </section>
+        )}
+
+        {(activeView === 'evidence' || (activeView === 'all' && hasEvidence)) && (
+          <section className="workspace-section" data-testid="section-evidence">
+            <EvidencePanel
+              evidenceData={evidenceData}
+              isLoading={evidenceLoading}
+              error={evidenceError}
+              selectedSignalCode={selectedSignalCode}
+              selectedQuery={selectedEvidenceQuery}
+              onClearFilter={handleClearEvidenceFilter}
+              onSelectSignalCode={handleSelectSignalCode}
+              onSelectEvidenceItem={handleOpenDrawer}
+              onRetry={onRetryEvidence}
             />
           </section>
         )}
@@ -182,13 +396,19 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
 
         {(activeView === 'all' || activeView === 'indicators') && (
           <section className="workspace-section" data-testid="section-indicators">
-            <IndicatorTable indicators={emailData.indicators} />
+            <IndicatorTable
+              indicators={emailData.indicators}
+              onSelectIndicator={handleSelectIndicator}
+            />
           </section>
         )}
 
         {(activeView === 'all' || activeView === 'headers') && (
           <section className="workspace-section" data-testid="section-headers">
-            <HeaderTable headers={emailData.headers} />
+            <HeaderTable
+              headers={emailData.headers}
+              onSelectHeader={handleSelectHeader}
+            />
           </section>
         )}
 
@@ -196,6 +416,22 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
           <section className="workspace-section" data-testid="section-attachments">
             <AttachmentList attachments={emailData.attachments} />
           </section>
+        )}
+
+        {(activeView === 'all' || activeView === 'timeline') && (
+          <TimelinePanel data={timelineData} loading={timelineLoading} error={timelineError} />
+        )}
+
+        {(activeView === 'all' || activeView === 'graph') && (
+          <GraphPanel data={graphData} loading={graphLoading} error={graphError} />
+        )}
+
+        {(activeView === 'all' || activeView === 'enrichment') && (
+          <EnrichmentPanel values={analysisData?.ip_enrichment} loading={analysisLoading} error={analysisError} />
+        )}
+
+        {(activeView === 'all' || activeView === 'report') && (
+          <ReportPanel data={reportData} loading={reportLoading} error={reportError} onGenerate={onGenerateReport ?? (() => undefined)} />
         )}
 
         {/* Pipeline Progression Notice */}
@@ -206,12 +442,20 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
             <p className="notice-text">
               The RFC 5322 structure, headers, MIME boundaries, extracted network indicators,
               and attachment digests have been recorded in the case repository as <strong>OBSERVED</strong> facts.
-              Subsequent forensic stages (SPF/DKIM alignment, relay chain timeline, IP geolocation,
-              reputation enrichment, and entity graph) execute in subsequent pipeline slices.
+              Authentication, relay reconstruction, enrichment, evidence, graph, timeline and report views are
+              derived from the persisted analysis. External URLs were not visited and attachments were not executed.
             </p>
           </div>
         </section>
       </div>
+
+      {/* Contextual Evidence Drawer */}
+      <EvidenceDrawer
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        evidenceItem={drawerItem}
+        onSelectSignalCode={handleSelectSignalCode}
+      />
     </div>
   );
 };

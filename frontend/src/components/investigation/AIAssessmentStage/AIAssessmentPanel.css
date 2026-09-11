@@ -296,6 +296,24 @@
   border: 1px solid var(--border-standard);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
+.evidence-chip.clickable {
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+
+.evidence-chip.clickable:hover {
+  background-color: var(--surface-secondary);
+  border-color: var(--epistemic-observed);
+  transform: translateY(-1px);
+}
+
+.evidence-chip.clickable:active {
+  transform: translateY(0);
 }
 
 .evidence-dot {

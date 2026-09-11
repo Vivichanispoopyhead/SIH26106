@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getAnalysis, getFriendlyErrorMessage, ApiError } from '../services/api';
+import { getAnalysis, getFriendlyErrorMessage, ApiError, getCaseGraph, getCaseTimeline, createCaseReport, getCaseReport } from '../services/api';
 
 describe('Analysis API Client (getAnalysis)', () => {
   beforeEach(() => {
@@ -38,7 +38,7 @@ describe('Analysis API Client (getAnalysis)', () => {
 
     const result = await getAnalysis('email_01J_API_TEST');
 
-    expect(result).toEqual(mockAnalysisPayload);
+    expect(result).toMatchObject(mockAnalysisPayload);
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/emails/email_01J_API_TEST/analysis'),
       expect.objectContaining({
@@ -150,5 +150,35 @@ describe('getFriendlyErrorMessage for Analysis Codes', () => {
     const friendly = getFriendlyErrorMessage(err);
     expect(friendly.code).toBe('AI_ANALYSIS_FAILED');
     expect(friendly.title).toBe('AI Assessment Failed');
+  });
+});
+
+describe('Case investigation API clients', () => {
+  it('loads graph and timeline using documented case routes', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ case_id: 'case-1', email_ids: [], analysis_ids: [], nodes: [], edges: [] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ case_id: 'case-1', email_ids: [], events: [] }) });
+    vi.stubGlobal('fetch', mockFetch);
+    await expect(getCaseGraph('case-1')).resolves.toMatchObject({ case_id: 'case-1', nodes: [] });
+    await expect(getCaseTimeline('case-1')).resolves.toMatchObject({ case_id: 'case-1', events: [] });
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/cases/case-1/graph');
+    expect(mockFetch.mock.calls[1][0]).toContain('/api/cases/case-1/timeline');
+  });
+
+  it('generates then retrieves a report and preserves backend error codes', async () => {
+    const report = { report_id: 'report:case-1:analysis-1', schema_version: '1.0', case: { id: 'case-1' }, generated_at: '2026-01-01T00:00:00Z', status: 'completed', emails: [], analyses: [], evidence: [], graph: { node_count: 0, edge_count: 0, node_types: {}, node_ids: [], edge_ids: [] }, timeline: [], limitations: [] };
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => report })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => report });
+    vi.stubGlobal('fetch', mockFetch);
+    await expect(createCaseReport('case-1')).resolves.toMatchObject({ report_id: report.report_id });
+    await expect(getCaseReport('case-1')).resolves.toMatchObject({ report_id: report.report_id });
+    expect(mockFetch.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+    expect(mockFetch.mock.calls[1][1]).toMatchObject({ method: 'GET' });
+  });
+
+  it('maps a missing case to CASE_NOT_FOUND', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: { code: 'CASE_NOT_FOUND', message: 'missing' } }) }));
+    await expect(getCaseGraph('missing')).rejects.toMatchObject({ code: 'CASE_NOT_FOUND', status: 404 });
   });
 });

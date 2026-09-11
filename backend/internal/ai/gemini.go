@@ -146,7 +146,8 @@ func (a *geminiAnalyzer) Assess(ctx context.Context, input Input) (domain.AIAsse
 		return failedAssessment("AI_PROVIDER_RESPONSE_FAILED", "The AI provider response could not be read."), fmt.Errorf("read Gemini response: %w", err)
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return failedAssessment("AI_PROVIDER_HTTP_ERROR", "The AI provider returned an error."), fmt.Errorf("Gemini response status %d", response.StatusCode)
+		message := fmt.Sprintf("The AI provider returned HTTP status %d.", response.StatusCode)
+		return failedAssessment("AI_PROVIDER_HTTP_ERROR", message), fmt.Errorf("Gemini response status %d", response.StatusCode)
 	}
 
 	var providerResponse geminiResponse

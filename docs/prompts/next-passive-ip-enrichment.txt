@@ -1,0 +1,538 @@
+SIH26106 - Project Coverage and Next Task
+
+PROJECT COVERAGE FROM THE DOCUMENTATION
+
+Area                                      Status              Current coverage
+----------------------------------------  ------------------  ----------------------------
+.eml upload and validation                Implemented         Upload, size/type checks,
+                                                             case creation, raw preservation
+Email parsing and MIME inspection         Implemented         Headers, body, attachments,
+                                                             MIME metadata
+Indicator extraction                      Implemented         URLs, domains, IPs,
+                                                             attachment metadata and hashes
+SPF/DKIM/DMARC analysis                   Implemented         Authentication-Results parsing
+Received-chain reconstruction             Implemented         Relay order, timestamps,
+                                                             IPs, confidence, provenance
+AI/Gemini integration                     Implemented         Gemini adapter, configuration,
+                                                             structured output
+AI safety and guardrails                  Implemented         Limits, URL masking, secret
+                                                             redaction, schema validation,
+                                                             evidence-reference checks
+Deterministic risk engine                 Implemented         Score, level, verdict,
+                                                             confidence and signals
+Evidence provenance                       Partially implemented
+                                                             References exist, but no
+                                                             dedicated evidence API/vault
+Audit chain                               Partially implemented
+                                                             Upload events are hash-chained;
+                                                             broader event coverage is missing
+Frontend investigation workspace          Partially implemented
+                                                             Upload, parsing, headers,
+                                                             indicators, attachments, AI
+Safe enrichment                          Not implemented    No IP geolocation, ASN, ISP,
+                                                             reputation, DNS or intelligence
+Entity graph                             Not implemented    No graph model or endpoint
+Geographic map                           Not implemented    No geolocation data/map endpoint
+Timeline visualization                   Partially implemented
+                                                             Received-chain data exists, but
+                                                             no dedicated timeline endpoint/UI
+Evidence viewer/vault                    Not implemented    No raw snippets, hash viewer,
+                                                             or evidence endpoint
+Case management                          Basic only         Cases are created automatically;
+                                                             no multi-email investigation flow
+Reports/PDF                              Not implemented    No report generation/download
+Redis caching                            Not implemented    Redis is documented but unused
+WebSockets/background jobs                Not implemented    Analysis is currently synchronous
+pgvector/campaign correlation             Not implemented    Correctly deferred for MVP
+
+RECOMMENDED NEXT FEATURE
+
+Implement safe passive enrichment, beginning with IPs extracted from the
+Received chain.
+
+Do not begin with graph, maps or PDF reports. Those features depend on stable
+enriched data.
+
+Recommended order:
+
+Passive IP enrichment
+    |
+Enriched evidence and risk signals
+    |
+Evidence endpoint
+    |
+Graph and timeline
+    |
+Geographic map
+    |
+Forensic report
+
+The enrichment slice must be safe:
+
+- No URL visiting.
+- No DNS resolution of arbitrary attacker-controlled domains initially.
+- No active scanning.
+- No attachment execution.
+- No geolocation claims about people.
+- Private, loopback, documentation and reserved IPs are not applicable.
+- Provider failures produce partial results, not total pipeline failure.
+- Results are labeled ENRICHED, separate from OBSERVED and INFERRED.
+
+
+PROMPT FOR THE BACKEND ENGINEER
+
+You are the backend engineer for SIH26106.
+
+Read before changing code:
+- docs/architecture.md
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/development-rules.md
+- docs/codex-role.md
+
+Ownership:
+- You own backend/.
+- Do not modify frontend/.
+- Update the API contract with any API change.
+
+Current implemented functionality:
+- .eml upload and validation
+- Case creation during upload
+- Raw email preservation
+- RFC 5322 parsing
+- MIME and attachment metadata extraction
+- URL, domain and IP extraction
+- SPF/DKIM/DMARC interpretation
+- Received-chain reconstruction
+- Gemini AI analysis
+- AI input normalization and safety guardrails
+- Deterministic risk scoring
+- Hash-chained upload audit event
+- GET /api/emails/{email_id}/analysis
+
+NEXT FEATURE
+
+Implement the first safe passive-enrichment vertical slice for extracted IP
+addresses.
+
+Goal:
+For every public IP observed in the parsed email's Received chain or
+indicators, produce optional provider-independent enrichment while preserving
+forensic provenance and graceful failure behavior.
+
+SCOPE
+
+1. Add an enrichment domain model.
+
+Define typed structures for:
+- Enrichment status
+- IP address
+- Country/region/city when available
+- Latitude/longitude when available
+- ASN
+- ISP or organization
+- Provider
+- Provider confidence
+- Retrieved timestamp
+- Provenance
+- Failure code and safe user-facing message
+
+Every enrichment result must clearly be marked as:
+- ENRICHED when returned by a provider
+- NOT_APPLICABLE for private, loopback, multicast, documentation and reserved
+  IPs
+- FAILED when a provider was attempted but failed
+- NOT_CONFIGURED when no provider is configured
+
+2. Add a provider-neutral interface.
+
+Use an interface similar to:
+
+type IPEnricher interface {
+    Lookup(context.Context, string) (domain.IPEnrichment, error)
+}
+
+The core pipeline must not depend directly on one external vendor.
+
+Add an unavailable/no-op implementation that returns explicit not_configured
+results instead of pretending that no threat exists.
+
+3. Implement one safe provider adapter.
+
+Prefer an environment-configured provider with:
+- API key read only from environment
+- Configurable endpoint
+- Request timeout
+- Maximum response size
+- No API key in logs, errors, tests or reports
+- Context cancellation
+- HTTP status validation
+- Strict response decoding
+- No retries that could unexpectedly multiply provider traffic
+
+If a local MaxMind database is already available, support it behind the same
+interface. Do not require a large database download for tests.
+
+Use a local HTTP test server for provider tests. Tests must not call a real
+external provider.
+
+4. Add IP classification before provider calls.
+
+Do not send these addresses to an external provider:
+- Loopback
+- Private RFC1918/RFC4193 ranges
+- Link-local addresses
+- Multicast addresses
+- Documentation/test ranges
+- Unspecified addresses
+- Invalid IP values
+
+Return a structured not_applicable result for these cases.
+
+5. Integrate enrichment into StartAnalysis.
+
+Sequence:
+
+Parse
+  -> authentication and Received-chain analysis
+  -> indicator extraction
+  -> passive IP enrichment
+  -> AI analysis
+  -> deterministic risk evaluation
+  -> persistence
+
+The implementation may remain synchronous for this MVP, but preserve explicit
+partial status behavior.
+
+Rules:
+- Enrichment failure must not erase parsed, authentication or AI results.
+- AI failure must not erase enrichment.
+- If one IP fails, other IPs may still succeed.
+- Results identify the source IP and provider.
+- Missing enrichment must not become a negative reputation.
+
+6. Extend the canonical analysis response.
+
+Update docs/api_contract.md before implementing the response shape.
+
+Add a stable field such as:
+
+"ip_enrichment": [
+  {
+    "ip_address": "203.0.113.10",
+    "status": "not_applicable",
+    "provenance": "ENRICHED",
+    "country": null,
+    "region": null,
+    "city": null,
+    "latitude": null,
+    "longitude": null,
+    "asn": null,
+    "organization": null,
+    "provider": null,
+    "confidence": null,
+    "retrieved_at": null,
+    "failure": null
+  }
+]
+
+Choose the final exact shape based on existing conventions and document:
+- statuses
+- nullable fields
+- provenance values
+- failure behavior
+- geolocation disclaimer
+
+Do not break existing frontend consumers. Existing fields remain
+backward-compatible.
+
+7. Add enrichment-aware risk signals carefully.
+
+Do not assign maliciousness solely from country, city, ASN or ISP.
+
+Only add safe deterministic signals such as:
+- public IP observed
+- enrichment unavailable
+- private IP observed
+- a provider-reported reputation signal, if the provider actually supplies it
+
+Geolocation is not proof of identity or maliciousness.
+
+Keep distinctions:
+- OBSERVED: IP was present in the email
+- ENRICHED: provider returned metadata
+- INFERRED: backend derived a conclusion
+- AI-ASSESSED: model output
+
+8. Add persistence.
+
+Persist enrichment with the canonical analysis result or a separate normalized
+table, following existing PostgreSQL and MemoryStore patterns.
+
+The result must survive:
+- PostgreSQL save and reload
+- MemoryStore save and reload
+- partial provider failure
+- repeated analysis
+
+Do not add Redis yet. Redis caching is a later task after the provider contract
+is proven.
+
+9. Add tests.
+
+Cover:
+- Public IPv4 enrichment success
+- Public IPv6 enrichment success if supported
+- Private IP returns not_applicable without an HTTP call
+- Documentation IP returns not_applicable without an HTTP call
+- Invalid IP handling
+- Provider timeout
+- Provider HTTP error
+- Malformed provider response
+- Missing API key
+- Provider response with unsupported fields or invalid values
+- Multiple IPs where only one provider lookup fails
+- Analysis remains partial rather than failing entirely
+- Existing AI failure behavior remains intact
+- Persistence round trip
+- No secrets or raw email content are logged
+
+10. Update:
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- Relevant environment example/documentation
+
+11. Validation:
+
+cd backend
+gofmt -w on changed Go files
+go test ./...
+go build ./...
+
+Do not modify frontend files. At the end, report:
+- Files changed
+- Enrichment interface and provider implemented
+- API shape
+- Failure behavior
+- Tests run
+- Provider limitations
+- Frontend work still required
+
+
+PROMPT FOR THE AIML ENGINEER
+
+You are the AIML and threat-intelligence engineer for SIH26106.
+
+Read before changing code:
+- docs/architecture.md
+- docs/api_contract.md
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/development-rules.md
+- docs/codex-role.md
+
+Ownership:
+- Coordinate with the backend engineer.
+- Do not modify frontend/.
+- Do not introduce a second competing AI provider.
+- Do not put final risk-score decisions inside the model.
+
+Current implemented functionality:
+- Gemini threat-intent analysis
+- Strict AI classification vocabulary
+- Confidence validation
+- Evidence-reference validation
+- Prompt-injection-resistant instructions
+- Input size limits and secret redaction
+- Deterministic risk engine
+- Authentication and Received-chain analysis
+
+NEXT FEATURE
+
+Define the threat-intelligence behavior and evaluation contract for safe
+passive IP enrichment.
+
+This task is not URL crawling, active scanning, autonomous agent behavior or
+attachment analysis.
+
+GOALS
+
+- Interpret enrichment results conservatively.
+- Ensure provider data never becomes unsupported attribution.
+- Ensure enriched data improves investigation context without overriding
+  observed forensic evidence.
+- Keep enrichment confidence and AI confidence separate.
+
+REQUIREMENTS
+
+1. Define the enrichment interpretation contract.
+
+Document interpretation of:
+- Country
+- Region
+- City
+- Latitude and longitude
+- ASN
+- ISP/organization
+- Hosting provider
+- Provider confidence
+- Provider timestamp
+- Missing provider data
+
+Explicitly state:
+- Geolocation is an IP-derived estimate.
+- It does not identify a person.
+- It does not prove the sender's physical location.
+- It does not prove maliciousness.
+- A hosting provider or cloud ASN is not automatically malicious.
+- A public IP is not automatically suspicious.
+
+2. Define safe enrichment statuses.
+
+Use or review:
+- enriched
+- not_applicable
+- not_configured
+- failed
+- partial
+
+Explain the difference between:
+- provider did not run
+- provider ran and found no data
+- provider failed
+- address is not eligible for lookup
+
+Never map any of these automatically to benign.
+
+3. Review AI-to-enrichment interaction.
+
+Gemini should receive normalized enrichment metadata only if the backend
+explicitly includes it in the AI input contract.
+
+If enrichment is sent to Gemini:
+- Label it ENRICHED.
+- Include provider and retrieval time.
+- Do not treat geolocation as identity.
+- Do not infer nationality, physical location or intent from geolocation.
+- Do not claim country or ASN proves maliciousness.
+- Do not invent provider facts.
+
+If enrichment is not yet included in AI input, document that the risk engine
+uses it separately and do not expand the Gemini prompt unnecessarily.
+
+4. Define reputation interpretation rules.
+
+If the provider supplies reputation:
+- Accept only documented provider fields.
+- Distinguish provider observation from platform inference.
+- Do not convert unknown reputation into clean.
+- Do not convert unavailable provider status into malicious.
+- Do not let one weak field produce a high-confidence verdict.
+- Preserve provider name, timestamp and safe evidence metadata without storing
+  unsafe full responses.
+
+5. Review risk-engine mapping.
+
+Recommend bounded, explainable signals such as:
+- enrichment available
+- enrichment unavailable
+- provider-reported abuse signal
+- provider confidence below a configured threshold
+
+Do not add points for:
+- country alone
+- city alone
+- ISP name alone
+- cloud hosting alone
+- public IP alone
+
+Every new risk signal must:
+- Have a stable code.
+- Have a clear description.
+- State provenance as ENRICHED or INFERRED.
+- Include an evidence reference.
+- Have deterministic tests.
+- Not override executable attachment or authentication evidence.
+
+6. Build a local evaluation matrix.
+
+Create table-driven cases for:
+- Private IP
+- Documentation IP
+- Ordinary public business relay
+- Public cloud relay with no abuse signal
+- Provider reports suspicious reputation
+- Provider returns no reputation
+- Provider timeout
+- Provider returns conflicting or incomplete metadata
+- AI classifies phishing while enrichment is neutral
+- AI returns unknown while enrichment reports abuse
+- Failed authentication with neutral enrichment
+- Passed authentication with suspicious provider reputation
+
+For every case define:
+- Expected enrichment status
+- Expected provenance
+- Allowed risk signal
+- Forbidden conclusion
+- Expected confidence behavior
+- Whether final analysis is completed or partial
+
+7. Prompt and model policy review.
+
+Update the Gemini system instruction only if needed. If enrichment is added
+to AI input, explicitly instruct Gemini:
+- Enriched metadata is not ground truth.
+- Geolocation is not identity.
+- Provider confidence is not threat confidence.
+- Do not infer nationality, physical location or actor attribution.
+- Do not invent reputation results.
+- Keep evidence references tied to supplied IDs.
+- Use unknown when evidence is insufficient.
+
+8. Avoid unsafe expansion.
+
+Do not add:
+- URL browsing
+- DNS lookups of attacker-controlled domains
+- WHOIS/RDAP calls
+- Active scanning
+- Attachment execution
+- Autonomous tool calling
+- Agent loops
+- Vector search
+- Embeddings
+- A second LLM provider
+
+9. Update:
+- docs/analysis-pipeline.md
+- docs/data-model.md
+- docs/api_contract.md if AI input or risk semantics change
+- A concise enrichment evaluation document only if necessary
+
+10. Validation:
+
+Run existing backend tests and build after any code changes.
+
+At the end, report:
+- Enrichment semantics defined
+- AI prompt changes, if any
+- Risk mapping recommendations
+- Evaluation matrix cases
+- Forbidden inferences
+- Remaining limitations
+
+
+REMAINING FEATURES AFTER PASSIVE ENRICHMENT
+
+1. Dedicated evidence endpoint and evidence viewer
+2. Received-chain timeline UI
+3. Entity graph endpoint and frontend graph
+4. IP geolocation map
+5. Case dashboard for multiple emails
+6. Forensic report generation
+7. Redis caching for enrichment
+8. Background analysis jobs/WebSockets, only if synchronous processing becomes
+   a real limitation
