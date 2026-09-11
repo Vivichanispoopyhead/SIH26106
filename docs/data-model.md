@@ -288,6 +288,28 @@ Geolocation
 
 Geolocation is an estimate and must not be treated as proof of a person's physical location.
 
+### Passive IP Enrichment (planned contract)
+
+An IP enrichment record is separate from an observed IP indicator and contains
+only provider-scoped metadata: provider name, retrieval timestamp, status,
+`data_available`, provider confidence when documented, and selected normalized
+fields (country, region, city, coordinates, ASN, ISP/organization, hosting
+provider, and documented reputation observations). Its provenance is
+`ENRICHED`; any platform conclusion derived from it is `INFERRED`.
+
+Status is one of `enriched`, `not_applicable`, `not_configured`, `failed`, or
+`partial`. `enriched` with `data_available: false` means the provider ran but
+had no matching data. It is not equivalent to benign or clean. Private,
+loopback, link-local, and documentation addresses are normally
+`not_applicable`; absent configuration is `not_configured`; attempted provider
+errors are `failed`; usable incomplete or conflicting fields are `partial`.
+
+Country, city, ASN, ISP, hosting provider, and public-IP status are context
+only. They cannot identify an actor, prove physical location, or independently
+add risk points. A documented provider abuse observation may be preserved as
+`ENRICHED` evidence, but it remains a provider assertion rather than an
+observed fact from the email.
+
 Audit Event
 
 Represents a tamper-evident event in the investigation history.
