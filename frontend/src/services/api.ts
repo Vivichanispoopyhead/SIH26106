@@ -17,6 +17,12 @@ export interface HealthResponse {
   status: string;
 }
 
+export interface AIProviderStatus {
+  provider: string;
+  model: string;
+  configured: boolean;
+}
+
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
   readonly status?: number;
@@ -27,6 +33,31 @@ export class ApiError extends Error {
     this.code = code;
     this.status = status;
   }
+
+}
+
+export async function getAIProviderStatus(baseUrl: string = API_BASE_URL): Promise<AIProviderStatus> {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/settings/ai`, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new ApiError('AI provider settings could not be loaded.', 'INTERNAL_ERROR', response.status);
+  return response.json() as Promise<AIProviderStatus>;
+}
+
+export async function configureAIProvider(
+  apiKey: string,
+  model: string,
+  baseUrl: string = API_BASE_URL,
+): Promise<AIProviderStatus> {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/settings/ai`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'google', api_key: apiKey, model }),
+  });
+  if (!response.ok) {
+    let message = 'AI provider configuration could not be saved.';
+    try { message = ((await response.json()) as ApiErrorBody).error.message; } catch { /* use safe fallback */ }
+    throw new ApiError(message, 'INVALID_REQUEST', response.status);
+  }
+  return response.json() as Promise<AIProviderStatus>;
 }
 
 /**

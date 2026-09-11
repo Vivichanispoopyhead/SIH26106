@@ -1,6 +1,8 @@
 import React from 'react';
 import { MonoValue } from '../common/MonoValue';
 import './AppHeader.css';
+import { AISettingsDialog } from './AISettingsDialog';
+import { useState } from 'react';
 
 interface AppHeaderProps {
   caseId?: string;
@@ -13,7 +15,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   emailId,
   onResetCase,
 }) => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
+    <>
     <header className="app-topbar" data-testid="app-header">
       <div className="topbar-brand">
         <span className="brand-logo-badge" aria-hidden="true">
@@ -27,6 +31,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       <div className="topbar-context">
+        <button type="button" className="btn-ai-settings" onClick={() => setSettingsOpen(true)}>AI provider</button>
         {caseId ? (
           <div className="case-id-pill" data-testid="active-case-pill">
             <span className="case-label">ACTIVE CASE:</span>
@@ -55,5 +60,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
       </div>
     </header>
+    <AISettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>
   );
 };

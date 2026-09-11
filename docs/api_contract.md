@@ -23,6 +23,10 @@ Investigation Workspace
 
 Changes to this document require corresponding changes in both frontend and backend.
 
+AI provider credentials are configured through the backend settings endpoint. The
+API key is accepted only over the configured application connection, is never
+returned in a response, and is held in backend memory for the current process.
+
 2. API Principles
 REST over HTTP.
 JSON for structured request and response data.
@@ -97,6 +101,32 @@ GET  /api/cases/{case_id}/analysis
 GET  /api/cases/{case_id}/map
 GET  /api/cases/{case_id}/evidence
 Future endpoints must extend the existing contract rather than breaking the initial upload model.
+
+### 5.1 Endpoint: AI Provider Settings
+
+`GET /api/settings/ai` returns non-secret provider status:
+
+```json
+{
+  "provider": "google",
+  "model": "gemini-2.5-flash",
+  "configured": true
+}
+```
+
+`POST /api/settings/ai` accepts:
+
+```json
+{
+  "provider": "google",
+  "api_key": "<provider key>",
+  "model": "gemini-2.5-flash"
+}
+```
+
+The key is never logged, persisted, or returned. Runtime configuration is
+process-local and is lost when the backend restarts. Only Google Gemini is
+currently supported; environment variables remain the startup fallback.
 
 6. Endpoint: Upload Email
 Request

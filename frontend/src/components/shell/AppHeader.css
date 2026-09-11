@@ -104,3 +104,15 @@
   background-color: var(--accent-cyan-hover);
   color: #031522;
 }
+
+.btn-ai-settings {
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-standard);
+  border-radius: var(--radius-sm);
+  padding: 7px 13px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-ai-settings:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }

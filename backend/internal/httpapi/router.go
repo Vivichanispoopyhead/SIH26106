@@ -19,6 +19,8 @@ func NewRouter(logger *slog.Logger, allowedOrigins []string, service *email.Serv
 
 	router.Get("/api/health", health)
 	handler := emailHandler{service: service}
+	router.Get("/api/settings/ai", handler.getAISettings)
+	router.Post("/api/settings/ai", handler.updateAISettings)
 	router.Post("/api/emails", handler.upload)
 	router.Post("/api/emails/{email_id}/analysis", handler.startAnalysis)
 	router.Get("/api/emails/{email_id}/analysis", handler.getAnalysis)

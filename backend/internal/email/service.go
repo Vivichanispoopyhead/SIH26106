@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"sih26106/backend/internal/ai"
@@ -34,9 +35,13 @@ var (
 )
 
 type Service struct {
-	store    persistence.Store
-	analyzer ai.Analyzer
-	enricher enrichment.IPEnricher
+	store        persistence.Store
+	analyzer     ai.Analyzer
+	enricher     enrichment.IPEnricher
+	analyzerMu   sync.RWMutex
+	aiProvider   string
+	aiModel      string
+	aiConfigured bool
 }
 
 func NewService(store persistence.Store) *Service {
@@ -48,11 +53,56 @@ func NewServiceWithAnalyzer(store persistence.Store, analyzer ai.Analyzer) *Serv
 }
 
 func NewServiceWithAnalyzerAndEnricher(store persistence.Store, analyzer ai.Analyzer, enricher enrichment.IPEnricher) *Service {
+	configured := !isUnavailableAnalyzer(analyzer)
+	model := ""
+	if config, err := ai.GeminiConfigFromEnv(); err == nil {
+		model = config.Model
+	}
 	analyzer = ai.NewGuardedAnalyzer(analyzer, ai.DefaultInputPolicy())
 	if enricher == nil {
 		enricher = enrichment.UnavailableEnricher{}
 	}
-	return &Service{store: store, analyzer: analyzer, enricher: enricher}
+	return &Service{store: store, analyzer: analyzer, enricher: enricher, aiProvider: "google", aiModel: model, aiConfigured: configured}
+}
+
+func isUnavailableAnalyzer(analyzer ai.Analyzer) bool {
+	_, unavailable := analyzer.(ai.UnavailableAnalyzer)
+	return unavailable
+}
+
+type AIProviderStatus struct {
+	Provider   string `json:"provider"`
+	Model      string `json:"model"`
+	Configured bool   `json:"configured"`
+}
+
+func (s *Service) AIProviderStatus() AIProviderStatus {
+	s.analyzerMu.RLock()
+	defer s.analyzerMu.RUnlock()
+	return AIProviderStatus{Provider: s.aiProvider, Model: s.aiModel, Configured: s.aiConfigured}
+}
+
+func (s *Service) ConfigureAI(apiKey, model string) error {
+	config, err := ai.GeminiConfigFromEnv()
+	if err != nil {
+		return err
+	}
+	config.APIKey = strings.TrimSpace(apiKey)
+	if strings.TrimSpace(model) != "" {
+		config.Model = strings.TrimSpace(model)
+	}
+	analyzer, err := ai.NewGeminiAnalyzer(config)
+	if err != nil {
+		return err
+	}
+	analyzer = ai.NewGuardedAnalyzer(analyzer, ai.DefaultInputPolicy())
+	s.analyzerMu.Lock()
+	s.analyzer = analyzer
+	s.aiProvider = "google"
+	s.aiModel = config.Model
+	s.aiConfigured = strings.TrimSpace(config.APIKey) != ""
+	s.analyzerMu.Unlock()
+	return nil
 }
 
 func (s *Service) Upload(ctx context.Context, filename string, raw []byte) (*domain.Email, error) {
@@ -210,7 +260,10 @@ func (s *Service) StartAnalysis(ctx context.Context, emailID string) (*domain.An
 
 	auth, received := forensics.AnalyzeHeaders(parsed.Headers)
 	ipResults, enrichmentFailure := s.enrichIPs(ctx, parsed.Indicators, received)
-	assessment, analyzerErr := s.analyzer.Assess(ctx, ai.Input{
+	s.analyzerMu.RLock()
+	analyzer := s.analyzer
+	s.analyzerMu.RUnlock()
+	assessment, analyzerErr := analyzer.Assess(ctx, ai.Input{
 		AnalysisID:    analysis.ID,
 		EmailID:       email.ID,
 		CaseID:        email.CaseID,
