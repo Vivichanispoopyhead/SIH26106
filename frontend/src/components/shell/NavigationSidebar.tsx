@@ -4,23 +4,25 @@ import './NavigationSidebar.css';
 interface NavigationSidebarProps {
   activeStage: 'ingest' | 'investigation';
   hasEmail: boolean;
+  activeView?: 'all' | 'metadata' | 'headers' | 'timeline' | 'indicators' | 'assessment' | 'graph' | 'enrichment' | 'evidence' | 'attachments' | 'report';
   onNewAnalysis?: () => void;
+  onSelectView?: (view: 'all' | 'metadata' | 'headers' | 'timeline' | 'indicators' | 'assessment' | 'graph' | 'enrichment' | 'evidence' | 'attachments' | 'report') => void;
 }
 
 const stages = [
-  { number: '01', label: 'Case overview', key: 'investigation' as const, available: true },
-  { number: '02', label: 'Email message', key: 'investigation' as const, available: true },
-  { number: '03', label: 'Headers & auth', key: 'investigation' as const, available: true },
-  { number: '04', label: 'Relay timeline', key: 'investigation' as const, available: true },
-  { number: '05', label: 'Indicators', key: 'investigation' as const, available: true },
-  { number: '06', label: 'AI assessment', key: 'investigation' as const, available: true },
-  { number: '07', label: 'Entity graph', key: 'investigation' as const, available: true },
-  { number: '08', label: 'Infrastructure', key: 'investigation' as const, available: true },
-  { number: '09', label: 'Evidence vault', key: 'investigation' as const, available: true },
-  { number: '10', label: 'Report', key: 'investigation' as const, available: true },
+  { number: '01', label: 'Case overview', view: 'all' as const },
+  { number: '02', label: 'Email message', view: 'metadata' as const },
+  { number: '03', label: 'Headers & auth', view: 'headers' as const },
+  { number: '04', label: 'Relay timeline', view: 'timeline' as const },
+  { number: '05', label: 'Indicators', view: 'indicators' as const },
+  { number: '06', label: 'AI assessment', view: 'assessment' as const },
+  { number: '07', label: 'Entity graph', view: 'graph' as const },
+  { number: '08', label: 'Infrastructure', view: 'enrichment' as const },
+  { number: '09', label: 'Evidence vault', view: 'evidence' as const },
+  { number: '10', label: 'Report', view: 'report' as const },
 ];
 
-export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStage, hasEmail, onNewAnalysis }) => (
+export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStage, hasEmail, activeView = 'all', onNewAnalysis, onSelectView }) => (
   <aside className="navigation-sidebar" aria-label="Investigation stages">
     <button type="button" className="sidebar-new-analysis" onClick={onNewAnalysis}>
       <span className="new-analysis-plus">+</span>
@@ -32,19 +34,21 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ activeStag
     </div>
 
     <nav className="stage-list">
-      {stages.map((stage, index) => {
-        const enabled = stage.available && hasEmail;
+      {stages.map((stage) => {
+        const enabled = hasEmail;
         return (
-          <div
+          <button
             key={stage.number}
-            className={`stage-item ${activeStage === stage.key && enabled && index === 0 ? 'active' : ''} ${!enabled ? 'disabled' : ''}`}
+            type="button"
+            className={`stage-item ${activeStage === 'investigation' && enabled && activeView === stage.view ? 'active' : ''} ${!enabled ? 'disabled' : ''}`}
             aria-disabled={!enabled}
-            title={enabled ? stage.label : 'Available after the next analysis stage'}
+            title={enabled ? stage.label : 'Available after an email is analyzed'}
+            disabled={!enabled}
+            onClick={() => onSelectView?.(stage.view)}
           >
             <span className="stage-number">{stage.number}</span>
             <span className="stage-label">{stage.label}</span>
-            {!stage.available && <span className="stage-state">soon</span>}
-          </div>
+          </button>
         );
       })}
     </nav>

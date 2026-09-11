@@ -71,6 +71,7 @@
 }
 
 .stage-item {
+  width: 100%;
   min-height: 34px;
   display: flex;
   align-items: center;
@@ -79,6 +80,9 @@
   border-left: 2px solid transparent;
   color: var(--text-secondary);
   font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
 }
 
 .stage-item.active {
@@ -89,6 +93,12 @@
 
 .stage-item.disabled {
   color: var(--text-ghost);
+  cursor: not-allowed;
+}
+
+.stage-item:not(:disabled):hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
 }
 
 .stage-number {

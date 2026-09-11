@@ -57,5 +57,58 @@ export const LandingPage: React.FC<Props> = ({ onGetStarted, onSignIn }) => (
         <article><Upload size={22} /><h3>Report clearly</h3><p>Move from upload to a structured investigation with evidence, timeline, graph, and report views.</p></article>
       </div>
     </section>
+
+    <section className="landing-workflow" id="workflow">
+      <div className="landing-section-heading">
+        <span className="landing-kicker">Workflow</span>
+        <h2>Every conclusion keeps a path back to the artifact.</h2>
+        <p>SIH26106 combines deterministic email forensics with a bounded AI assessment so analysts can move quickly without losing context.</p>
+      </div>
+      <div className="workflow-grid">
+        {[
+          ['01', 'Ingest', 'Preserve the original .eml and create a traceable investigation case.'],
+          ['02', 'Extract', 'Normalize headers, MIME parts, indicators, authentication results, and attachments.'],
+          ['03', 'Assess', 'Combine deterministic risk signals with a confidence-scored Gemini assessment.'],
+          ['04', 'Explain', 'Review evidence, relay timeline, entity graph, enrichment, and a safe report.'],
+        ].map(([number, title, description]) => (
+          <article className="workflow-card" key={number}>
+            <span className="workflow-number">{number}</span>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section className="landing-trust" id="trust">
+      <div>
+        <span className="landing-kicker"><ShieldCheck size={15} /> Trust & safety</span>
+        <h2>AI-assisted, evidence-first, safe by default.</h2>
+      </div>
+      <div className="trust-points">
+        <div><strong>01</strong><span>Attachments are never executed. Only metadata and hashes are inspected.</span></div>
+        <div><strong>02</strong><span>URLs are recorded as evidence but are not automatically visited.</span></div>
+        <div><strong>03</strong><span>Observed, inferred, enriched, and AI-assessed facts remain visibly distinct.</span></div>
+      </div>
+    </section>
+
+    <section className="landing-about" id="about">
+      <div className="about-copy">
+        <span className="landing-kicker">About SIH26106</span>
+        <h2>A focused investigation console for suspicious email.</h2>
+        <p>Built for analysts who need one defensible workspace instead of a collection of disconnected tools. The platform is intentionally modular, explainable, and ready for controlled feedback-driven learning.</p>
+        <button type="button" className="landing-primary-button" onClick={onGetStarted}>Start an investigation <ArrowRight size={18} /></button>
+      </div>
+      <div className="demo-case-card" aria-label="Example investigation data">
+        <div className="demo-case-header"><span>DEMO CASE / PAYMENT_REDIRECT_014</span><span className="demo-status">PARTIAL</span></div>
+        <h3>Supplier account update request</h3>
+        <div className="demo-metrics">
+          <div><strong>72</strong><span>risk score</span></div>
+          <div><strong>08</strong><span>evidence items</span></div>
+          <div><strong>03</strong><span>relay hops</span></div>
+        </div>
+        <div className="demo-tags"><span>DMARC fail</span><span>URL observed</span><span>AI assessed</span></div>
+      </div>
+    </section>
   </main>
 );

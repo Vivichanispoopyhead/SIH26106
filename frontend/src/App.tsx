@@ -23,7 +23,7 @@ import { EmlUploadZone } from './components/ingestion/EmlUploadZone';
 import { LoadingStage, WorkflowState } from './components/states/LoadingStage';
 import { ErrorBanner } from './components/states/ErrorBanner';
 import { WorkspaceErrorBoundary } from './components/states/WorkspaceErrorBoundary';
-import { ParsedEmailWorkspace } from './components/investigation/ParsedEmailWorkspace';
+import { ParsedEmailWorkspace, WorkspaceView } from './components/investigation/ParsedEmailWorkspace';
 import { MailSearch } from 'lucide-react';
 import './App.css';
 import { LandingPage } from './components/marketing/LandingPage';
@@ -61,6 +61,7 @@ export const App: React.FC = () => {
   const [reportError, setReportError] = useState<unknown | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [error, setError] = useState<unknown | null>(null);
+  const [requestedView, setRequestedView] = useState<WorkspaceView>('all');
 
   const pollingRef = useRef<boolean>(false);
   const uploadInProgress = workflowState === 'uploading';
@@ -135,6 +136,7 @@ export const App: React.FC = () => {
   // Main EML Ingestion & Analysis Workflow
   const handleFileSelected = async (file: File) => {
     setError(null);
+    setRequestedView('all');
     setCurrentFile(file);
     setFilename(file.name);
     setWorkflowState('uploading');
@@ -255,6 +257,7 @@ export const App: React.FC = () => {
     setReportError(null);
     setCurrentFile(null);
     setError(null);
+    setRequestedView('all');
   };
 
   return (
@@ -334,7 +337,9 @@ export const App: React.FC = () => {
         <NavigationSidebar
           activeStage={workflowState === 'idle' ? 'ingest' : 'investigation'}
           hasEmail={Boolean(emailId)}
+          activeView={requestedView}
           onNewAnalysis={handleReset}
+          onSelectView={setRequestedView}
         />
 
         {/* Main Workspace */}
@@ -412,6 +417,7 @@ export const App: React.FC = () => {
               reportError={reportError}
               onGenerateReport={handleGenerateReport}
               onDownloadReportPDF={handleDownloadReportPDF}
+              requestedView={requestedView}
               />
             </WorkspaceErrorBoundary>
           </section>

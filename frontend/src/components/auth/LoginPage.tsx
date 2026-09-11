@@ -9,6 +9,7 @@ export const LoginPage: React.FC<Props> = ({ onBack, onAuthenticated }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!email.trim() || !password.trim()) { setError('Enter your email and password to continue.'); return; }
@@ -26,8 +27,9 @@ export const LoginPage: React.FC<Props> = ({ onBack, onAuthenticated }) => {
         <form onSubmit={submit}>
           <label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@organization.com" autoComplete="email" /></label>
           <label>Password<div className="password-field"><input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" autoComplete="current-password" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
-          <div className="login-options"><label className="remember"><input type="checkbox" /> Remember me</label><a href="#forgot">Forgot password?</a></div>
+          <div className="login-options"><label className="remember"><input type="checkbox" /> Remember me</label><button type="button" className="login-forgot" onClick={() => { setNotice('Password recovery is available once identity services are connected.'); setError(''); }}>Forgot password?</button></div>
           {error && <p className="login-error" role="alert">{error}</p>}
+          {notice && <p className="login-notice" role="status">{notice}</p>}
           <button type="submit" className="login-submit">Sign in <ArrowRight size={17} /></button>
         </form>
         <p className="login-footer">New to SIH26106? <button type="button" onClick={onBack}>Explore the platform</button></p>

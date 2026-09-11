@@ -43,6 +43,7 @@ export interface ParsedEmailWorkspaceProps {
   reportError?: unknown | null;
   onGenerateReport?: () => void;
   onDownloadReportPDF?: () => Promise<{ blob: Blob; filename: string }>;
+  requestedView?: WorkspaceView;
 }
 
 export type WorkspaceView =
@@ -78,12 +79,17 @@ export const ParsedEmailWorkspace: React.FC<ParsedEmailWorkspaceProps> = ({
   reportError,
   onGenerateReport,
   onDownloadReportPDF,
+  requestedView,
 }) => {
   const [activeView, setActiveView] = useState<WorkspaceView>('all');
   const [selectedSignalCode, setSelectedSignalCode] = useState<string | null>(null);
   const [selectedEvidenceQuery, setSelectedEvidenceQuery] = useState<string | null>(null);
   const [drawerItem, setDrawerItem] = useState<EvidenceItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (requestedView) setActiveView(requestedView);
+  }, [requestedView]);
 
   const headerCount = emailData.headers?.length || 0;
   const indicatorCount =
